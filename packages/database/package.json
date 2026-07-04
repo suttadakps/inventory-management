@@ -4,7 +4,9 @@
   "private": true,
   "description": "ARTIVERGES NEXT — Prisma schema and generated database client",
   "main": "index.ts",
+  "types": "index.ts",
   "scripts": {
+    "postinstall": "prisma generate",
     "generate": "prisma generate",
     "validate": "prisma validate",
     "format": "prisma format",

@@ -1,0 +1,340 @@
+import { Prisma, type ProjectStatus } from "@artiverges/database";
+import { prisma } from "@/lib/db";
+import type { Role } from "@/lib/auth/roles";
+import type { CurrentUser } from "@/lib/auth/session";
+import { canViewAllProjects } from "./permissions";
+
+/**
+ * Projects repository (repository pattern, docs/03 §4, docs/08 §6).
+ * The only place that touches the projects data. All queries are role-scoped
+ * here because Prisma bypasses RLS.
+ *
+ * Prisma Decimal/Date values are mapped to plain primitives so results are safe
+ * to serialize across the Server/Client Component boundary.
+ */
+
+// ---- DTOs -------------------------------------------------------------------
+
+export type ProjectListItem = {
+  id: string;
+  code: string;
+  name: string;
+  clientName: string;
+  status: ProjectStatus;
+  budget: number | null;
+  progress: number;
+  startDate: string | null;
+  endDate: string | null;
+  managerName: string | null;
+  siteEngineerName: string | null;
+  archived: boolean;
+};
+
+export type ProjectDetail = ProjectListItem & {
+  clientId: string;
+  address: string | null;
+  managerId: string | null;
+  siteEngineerId: string | null;
+  contractValue: number | null;
+  actualCost: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ProjectOption = { id: string; name: string };
+export type UserOption = { id: string; name: string; role: Role };
+
+export type ProjectWriteInput = {
+  code: string;
+  name: string;
+  clientId: string;
+  address?: string;
+  status: ProjectStatus;
+  budget?: number;
+  startDate?: Date;
+  endDate?: Date;
+  progress: number;
+  managerId?: string;
+  siteEngineerId?: string;
+};
+
+export type ProjectAuthz = {
+  exists: boolean;
+  isManager: boolean;
+  isAssignedEngineer: boolean;
+  isMember: boolean;
+  clientPortalUserId: string | null;
+};
+
+// ---- Prisma shapes / mappers ------------------------------------------------
+
+const projectInclude = {
+  client: { select: { id: true, name: true, portalUserId: true } },
+  manager: { select: { id: true, fullName: true, email: true } },
+  members: {
+    where: { projectRole: "engineer" as const },
+    select: {
+      userId: true,
+      user: { select: { fullName: true, email: true } },
+    },
+  },
+} satisfies Prisma.ProjectInclude;
+
+type ProjectRecord = Prisma.ProjectGetPayload<{ include: typeof projectInclude }>;
+
+const dec = (v: Prisma.Decimal | null): number | null =>
+  v === null ? null : v.toNumber();
+
+const isoDate = (d: Date | null): string | null =>
+  d === null ? null : d.toISOString().slice(0, 10);
+
+const displayName = (
+  u: { fullName: string | null; email?: string | null } | null
+): string | null => (u ? (u.fullName ?? u.email ?? null) : null);
+
+function toListItem(p: ProjectRecord): ProjectListItem {
+  const engineer = p.members[0]?.user ?? null;
+  return {
+    id: p.id,
+    code: p.code,
+    name: p.name,
+    clientName: p.client.name,
+    status: p.status,
+    budget: dec(p.budgetCost),
+    progress: p.progressPct.toNumber(),
+    startDate: isoDate(p.startDate),
+    endDate: isoDate(p.endDate),
+    managerName: displayName(p.manager),
+    siteEngineerName: displayName(engineer),
+    archived: p.deletedAt !== null,
+  };
+}
+
+function toDetail(p: ProjectRecord): ProjectDetail {
+  return {
+    ...toListItem(p),
+    clientId: p.clientId,
+    address: p.address,
+    managerId: p.managerId,
+    siteEngineerId: p.members[0]?.userId ?? null,
+    contractValue: dec(p.contractValue),
+    actualCost: p.actualCost.toNumber(),
+    createdAt: p.createdAt.toISOString(),
+    updatedAt: p.updatedAt.toISOString(),
+  };
+}
+
+// ---- Scoping ----------------------------------------------------------------
+
+/** Restrict a query to the projects a given user is allowed to see. */
+function scopeWhere(user: CurrentUser): Prisma.ProjectWhereInput {
+  if (canViewAllProjects(user.role)) return {};
+  if (user.role === "client") {
+    return { client: { portalUserId: user.id } };
+  }
+  // site_engineer / worker: only assigned projects.
+  return {
+    OR: [
+      { managerId: user.id },
+      { members: { some: { userId: user.id } } },
+    ],
+  };
+}
+
+function canViewRecord(user: CurrentUser, p: ProjectRecord): boolean {
+  if (canViewAllProjects(user.role)) return true;
+  if (user.role === "client") return p.client.portalUserId === user.id;
+  return (
+    p.managerId === user.id || p.members.some((m) => m.userId === user.id)
+  );
+}
+
+// ---- Reads ------------------------------------------------------------------
+
+export async function listProjects(
+  user: CurrentUser,
+  opts: { q?: string; status?: ProjectStatus; includeArchived?: boolean } = {}
+): Promise<ProjectListItem[]> {
+  // Combine role-scope and filters with AND so neither clause's `OR` can
+  // overwrite the other (which would leak out-of-scope rows).
+  const filters: Prisma.ProjectWhereInput[] = [scopeWhere(user)];
+  if (!opts.includeArchived) filters.push({ deletedAt: null });
+  if (opts.status) filters.push({ status: opts.status });
+  if (opts.q) {
+    filters.push({
+      OR: [
+        { name: { contains: opts.q, mode: "insensitive" } },
+        { code: { contains: opts.q, mode: "insensitive" } },
+        { client: { name: { contains: opts.q, mode: "insensitive" } } },
+      ],
+    });
+  }
+
+  const rows = await prisma.project.findMany({
+    where: { AND: filters },
+    include: projectInclude,
+    orderBy: { createdAt: "desc" },
+    take: 200,
+  });
+
+  return rows.map(toListItem);
+}
+
+/** Detail scoped to the requesting user; null if missing or not permitted. */
+export async function getProjectForUser(
+  user: CurrentUser,
+  id: string
+): Promise<ProjectDetail | null> {
+  const p = await prisma.project.findUnique({
+    where: { id },
+    include: projectInclude,
+  });
+  if (!p) return null;
+  if (!canViewRecord(user, p)) return null;
+  return toDetail(p);
+}
+
+/** Authorization context for edit/archive decisions. */
+export async function getProjectAuthz(
+  userId: string,
+  id: string
+): Promise<ProjectAuthz> {
+  const p = await prisma.project.findUnique({
+    where: { id },
+    include: projectInclude,
+  });
+  if (!p) {
+    return {
+      exists: false,
+      isManager: false,
+      isAssignedEngineer: false,
+      isMember: false,
+      clientPortalUserId: null,
+    };
+  }
+  return {
+    exists: true,
+    isManager: p.managerId === userId,
+    isAssignedEngineer: p.members.some((m) => m.userId === userId),
+    isMember:
+      p.managerId === userId || p.members.some((m) => m.userId === userId),
+    clientPortalUserId: p.client.portalUserId,
+  };
+}
+
+// ---- Option lists (real data — no mocks) ------------------------------------
+
+export async function listClientOptions(): Promise<ProjectOption[]> {
+  const clients = await prisma.client.findMany({
+    where: { deletedAt: null },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
+  return clients;
+}
+
+export async function listAssignableUsers(): Promise<UserOption[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      status: "active",
+      role: { in: ["owner", "admin", "ae", "site_engineer"] },
+    },
+    select: { id: true, fullName: true, email: true, role: true },
+    orderBy: { fullName: "asc" },
+  });
+  return users.map((u) => ({
+    id: u.id,
+    name: u.fullName ?? u.email ?? "Unknown",
+    role: u.role as Role,
+  }));
+}
+
+// ---- Writes -----------------------------------------------------------------
+
+/** Editable fields shared by create and update (code is create-only). */
+function editableData(input: ProjectWriteInput, actorId: string) {
+  return {
+    name: input.name,
+    clientId: input.clientId,
+    status: input.status,
+    address: input.address ?? null,
+    budgetCost: input.budget ?? null,
+    startDate: input.startDate ?? null,
+    endDate: input.endDate ?? null,
+    progressPct: input.progress,
+    managerId: input.managerId ?? null,
+    updatedById: actorId,
+  };
+}
+
+export async function createProject(
+  input: ProjectWriteInput,
+  actorId: string
+): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    const project = await tx.project.create({
+      data: {
+        code: input.code,
+        createdById: actorId,
+        ...editableData(input, actorId),
+      },
+    });
+    if (input.siteEngineerId) {
+      await tx.projectMember.create({
+        data: {
+          projectId: project.id,
+          userId: input.siteEngineerId,
+          projectRole: "engineer",
+        },
+      });
+    }
+    return project.id;
+  });
+}
+
+export async function updateProject(
+  id: string,
+  input: ProjectWriteInput,
+  actorId: string
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    // Code is immutable on update — intentionally not written.
+    await tx.project.update({
+      where: { id },
+      data: editableData(input, actorId),
+    });
+    // Reconcile the single "site engineer" membership.
+    await tx.projectMember.deleteMany({
+      where: { projectId: id, projectRole: "engineer" },
+    });
+    if (input.siteEngineerId) {
+      await tx.projectMember.create({
+        data: {
+          projectId: id,
+          userId: input.siteEngineerId,
+          projectRole: "engineer",
+        },
+      });
+    }
+  });
+}
+
+export async function archiveProject(
+  id: string,
+  actorId: string
+): Promise<void> {
+  await prisma.project.update({
+    where: { id },
+    data: { deletedAt: new Date(), updatedById: actorId },
+  });
+}
+
+export async function restoreProject(
+  id: string,
+  actorId: string
+): Promise<void> {
+  await prisma.project.update({
+    where: { id },
+    data: { deletedAt: null, updatedById: actorId },
+  });
+}

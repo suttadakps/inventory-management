@@ -1,0 +1,138 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+import { Prisma } from "@artiverges/database";
+
+import { requireUser } from "@/lib/auth/session";
+import { projectBaseSchema, projectUpdateSchema } from "@/lib/validation/project";
+import {
+  canCreateProject,
+  canArchiveProject,
+  canEditProject,
+} from "./permissions";
+import * as repo from "./repository";
+
+export type ProjectActionState = {
+  error?: string;
+  fieldErrors?: Record<string, string>;
+};
+
+function collectFieldErrors(
+  error: import("zod").ZodError
+): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const issue of error.issues) {
+    const key = issue.path[0];
+    if (typeof key === "string" && !out[key]) out[key] = issue.message;
+  }
+  return out;
+}
+
+function isUniqueCodeViolation(e: unknown): boolean {
+  return (
+    e instanceof Prisma.PrismaClientKnownRequestError &&
+    e.code === "P2002" &&
+    (e.meta?.target as string[] | undefined)?.includes("code") === true
+  );
+}
+
+/** Create a project. */
+export async function createProject(
+  _prev: ProjectActionState,
+  formData: FormData
+): Promise<ProjectActionState> {
+  const user = await requireUser();
+  if (!canCreateProject(user.role)) {
+    return { error: "You do not have permission to create projects." };
+  }
+
+  const parsed = projectBaseSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      error: "Please correct the errors below.",
+      fieldErrors: collectFieldErrors(parsed.error),
+    };
+  }
+
+  let projectId: string;
+  try {
+    projectId = await repo.createProject(parsed.data, user.id);
+  } catch (e) {
+    if (isUniqueCodeViolation(e)) {
+      return { fieldErrors: { code: "This project code is already in use." } };
+    }
+    throw e;
+  }
+
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}`);
+}
+
+/** Update a project. `id` is supplied via a hidden form field. */
+export async function updateProject(
+  _prev: ProjectActionState,
+  formData: FormData
+): Promise<ProjectActionState> {
+  const user = await requireUser();
+  const id = String(formData.get("id") ?? "");
+  if (!id) return { error: "Missing project reference." };
+
+  const authz = await repo.getProjectAuthz(user.id, id);
+  if (!authz.exists) return { error: "Project not found." };
+  if (
+    !canEditProject(user.role, {
+      isManager: authz.isManager,
+      isAssignedEngineer: authz.isAssignedEngineer,
+    })
+  ) {
+    return { error: "You do not have permission to edit this project." };
+  }
+
+  const parsed = projectUpdateSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) {
+    return {
+      error: "Please correct the errors below.",
+      fieldErrors: collectFieldErrors(parsed.error),
+    };
+  }
+
+  await repo.updateProject(id, parsed.data, user.id);
+
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  redirect(`/projects/${id}`);
+}
+
+/** Archive (soft-delete) a project. */
+export async function archiveProject(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!canArchiveProject(user.role)) {
+    throw new Error("Not authorized to archive projects.");
+  }
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Missing project reference.");
+
+  const authz = await repo.getProjectAuthz(user.id, id);
+  if (!authz.exists) throw new Error("Project not found.");
+
+  await repo.archiveProject(id, user.id);
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  redirect(`/projects/${id}`);
+}
+
+/** Restore an archived project. */
+export async function restoreProject(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!canArchiveProject(user.role)) {
+    throw new Error("Not authorized to restore projects.");
+  }
+  const id = String(formData.get("id") ?? "");
+  if (!id) throw new Error("Missing project reference.");
+
+  await repo.restoreProject(id, user.id);
+  revalidatePath("/projects");
+  revalidatePath(`/projects/${id}`);
+  redirect(`/projects/${id}`);
+}

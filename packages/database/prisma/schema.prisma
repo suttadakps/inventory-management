@@ -215,11 +215,13 @@ model Project {
   clientId      String        @map("client_id") @db.Uuid
   managerId     String?       @map("manager_id") @db.Uuid
   status        ProjectStatus @default(planning)
+  address       String?
   startDate     DateTime?     @map("start_date") @db.Date
   endDate       DateTime?     @map("end_date") @db.Date
   contractValue Decimal?      @map("contract_value") @db.Decimal(14, 2)
   budgetCost    Decimal?      @map("budget_cost") @db.Decimal(14, 2)
   actualCost    Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  progressPct   Decimal       @default(0) @map("progress_pct") @db.Decimal(5, 2)
   createdById   String?       @map("created_by") @db.Uuid
   updatedById   String?       @map("updated_by") @db.Uuid
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)

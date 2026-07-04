@@ -1,0 +1,18 @@
+{
+  "name": "artiverges-next",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ARTIVERGES NEXT — monorepo root",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "generate": "npm run generate -w @artiverges/database",
+    "dev": "npm run generate && npm run dev -w web",
+    "build": "npm run generate && npm run build -w web",
+    "typecheck": "npm run typecheck -w web",
+    "lint": "npm run lint -w web"
+  },
+  "packageManager": "npm@11.6.0"
+}
