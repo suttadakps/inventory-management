@@ -185,9 +185,12 @@ model Client {
   id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name           String
   type           String   @default("individual") // individual | business
+  contactPerson  String?  @map("contact_person")
   primaryEmail   String?  @map("primary_email")
   primaryPhone   String?  @map("primary_phone")
+  taxId          String?  @map("tax_id")
   billingAddress String?  @map("billing_address")
+  notes          String?
   portalUserId   String?  @map("portal_user_id") @db.Uuid // -> profiles.id (FK in SQL)
   createdById    String?  @map("created_by") @db.Uuid
   updatedById    String?  @map("updated_by") @db.Uuid
