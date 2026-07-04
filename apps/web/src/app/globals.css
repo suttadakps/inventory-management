@@ -1,0 +1,33 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Design tokens — docs/04_UI_DESIGN_SYSTEM.md §3 (color) and §6 (radius) */
+:root {
+  --color-primary-700: #123a6b;
+  --color-primary-600: #1b4f91;
+  --color-primary-500: #2563b0;
+  --color-primary-100: #e3ecf7;
+
+  --color-accent-600: #e0691a;
+  --color-accent-100: #fce9da;
+
+  --color-success: #1e8e5a;
+  --color-warning: #c9871a;
+  --color-danger: #c0392b;
+  --color-info: #2563b0;
+  --color-neutral: #6b7280;
+
+  --color-bg: #f5f7fa;
+  --color-surface: #ffffff;
+  --color-border: #e2e6ec;
+
+  --color-text-primary: #1a2230;
+  --color-text-secondary: #5b6472;
+  --color-text-disabled: #9aa3b0;
+}
+
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+}

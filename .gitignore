@@ -13,9 +13,14 @@ Thumbs.db
 .env.*
 !.env.example
 
-# Dependencies / build output (for future app code)
+# Dependencies / build output
 node_modules/
 dist/
 build/
 coverage/
 *.log
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo
