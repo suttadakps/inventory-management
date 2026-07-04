@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils/cn";
 const NAV = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/projects", label: "Projects" },
+  { href: "/clients", label: "Clients" },
 ];
 
 function NavLink({
