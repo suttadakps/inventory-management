@@ -87,6 +87,12 @@ export default async function ProjectDetailPage({
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href={`/projects/${project.id}/boq`}
+              className="inline-flex h-9 items-center rounded-sm bg-primary-600 px-3 text-body-sm font-medium text-white hover:bg-primary-700"
+            >
+              Bills of Quantities
+            </Link>
             {canEdit && !project.archived && (
               <Link
                 href={`/projects/${project.id}/edit`}

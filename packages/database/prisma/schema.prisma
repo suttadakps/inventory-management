@@ -65,6 +65,9 @@ enum BoqStatus {
   draft
   finalized
   superseded
+  submitted
+  approved
+  archived
 
   @@map("boq_status")
 }
@@ -270,19 +273,24 @@ model ProjectMember {
 // ----------------------------------------------------------------------------
 
 model Boq {
-  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String    @map("project_id") @db.Uuid
-  version     Int       @default(1)
-  status      BoqStatus @default(draft)
-  totalCost   Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
-  createdById String?   @map("created_by") @db.Uuid
-  updatedById String?   @map("updated_by") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  version      Int       @default(1)
+  status       BoqStatus @default(draft)
+  title        String?
+  notes        String?
+  totalCost    Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
+  submittedAt  DateTime? @map("submitted_at") @db.Timestamptz(6)
+  approvedAt   DateTime? @map("approved_at") @db.Timestamptz(6)
+  approvedById String?   @map("approved_by") @db.Uuid
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  items      BoqItem[]
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sections   BoqSection[]
   quotations Quotation[]
 
   @@unique([projectId, version])
@@ -291,24 +299,62 @@ model Boq {
   @@map("boqs")
 }
 
+model BoqSection {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  boqId     String   @map("boq_id") @db.Uuid
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  boq        Boq           @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  categories BoqCategory[]
+
+  @@index([boqId, sortOrder])
+  @@map("boq_sections")
+}
+
+model BoqCategory {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sectionId String   @map("section_id") @db.Uuid
+  name      String
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  section BoqSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  items   BoqItem[]
+
+  @@index([sectionId, sortOrder])
+  @@map("boq_categories")
+}
+
 model BoqItem {
-  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  boqId        String  @map("boq_id") @db.Uuid
-  materialId   String? @map("material_id") @db.Uuid
-  section      String?
-  description  String
-  unit         String?
-  quantity     Decimal @default(0) @db.Decimal(14, 3)
-  materialRate Decimal @default(0) @map("material_rate") @db.Decimal(14, 2)
-  laborRate    Decimal @default(0) @map("labor_rate") @db.Decimal(14, 2)
-  lineCost     Decimal @default(0) @map("line_cost") @db.Decimal(14, 2)
-  sortOrder    Int     @default(0) @map("sort_order")
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  categoryId    String   @map("category_id") @db.Uuid
+  materialId    String?  @map("material_id") @db.Uuid
+  supplierId    String?  @map("supplier_id") @db.Uuid
+  itemCode      String?  @map("item_code")
+  description   String
+  unit          String?
+  quantity      Decimal  @default(0) @db.Decimal(14, 3)
+  materialCost  Decimal  @default(0) @map("material_cost") @db.Decimal(14, 2)
+  laborCost     Decimal  @default(0) @map("labor_cost") @db.Decimal(14, 2)
+  equipmentCost Decimal  @default(0) @map("equipment_cost") @db.Decimal(14, 2)
+  overhead      Decimal  @default(0) @db.Decimal(14, 2)
+  sellingPrice  Decimal  @default(0) @map("selling_price") @db.Decimal(14, 2)
+  notes         String?
+  sortOrder     Int      @default(0) @map("sort_order")
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  boq      Boq       @relation(fields: [boqId], references: [id], onDelete: Cascade)
-  material Material? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  category BoqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  material Material?   @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  supplier Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
-  @@index([boqId])
+  @@index([categoryId, sortOrder])
   @@index([materialId])
+  @@index([supplierId])
   @@map("boq_items")
 }
 
@@ -487,6 +533,7 @@ model Supplier {
   materials      Material[]
   purchaseOrders PurchaseOrder[]
   payments       Payment[]
+  boqItems       BoqItem[]
 
   @@index([name])
   @@map("suppliers")

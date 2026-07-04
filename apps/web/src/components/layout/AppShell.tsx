@@ -66,7 +66,7 @@ export function AppShell({
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <header className="sticky top-0 z-20 border-b border-border bg-primary-700 text-white">
+      <header className="sticky top-0 z-20 border-b border-border bg-primary-700 text-white print:hidden">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-6">
             <Link href="/dashboard" className="text-h3 font-bold">
@@ -102,7 +102,7 @@ export function AppShell({
 
       <div className="mx-auto flex max-w-7xl gap-6 px-4 py-6">
         {/* Sidebar (desktop) */}
-        <aside className="hidden w-56 shrink-0 md:block">
+        <aside className="hidden w-56 shrink-0 md:block print:!hidden">
           <nav className="space-y-1">
             {NAV.map((n) => (
               <NavLink key={n.href} {...n} />
