@@ -1,0 +1,656 @@
+// =============================================================================
+// ARTIVERGES NEXT — Prisma schema
+// Conventions: docs/02_DATABASE.md (§2 naming, §5 tables, §6 enums, §7 indexes,
+// §8 constraints, §9 auditing/soft-delete).
+//
+// SOURCE OF TRUTH: the SQL migrations in supabase/migrations/ are authoritative
+// for deployment (Supabase is our Postgres — see docs/adr/0001). This schema
+// mirrors them and generates the typed client for the (future) API layer.
+// Keep the two in sync (or regenerate with `prisma db pull`).
+//
+// The `User` model maps to the existing `profiles` table created in
+// supabase/migrations/0001_auth_profiles.sql (1:1 with Supabase auth.users).
+// Audit columns (created_by/updated_by) and a few external links
+// (client.portal_user_id, payment parties) are modelled as scalar UUIDs;
+// their FKs are enforced in SQL to avoid an explosion of back-relations on User.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ----------------------------------------------------------------------------
+// Enums (docs/02_DATABASE.md §6)
+// ----------------------------------------------------------------------------
+
+enum UserRole {
+  owner
+  admin
+  ae
+  site_engineer
+  worker
+  client
+
+  @@map("user_role")
+}
+
+enum ProjectStatus {
+  planning
+  active
+  on_hold
+  completed
+  warranty
+  closed
+
+  @@map("project_status")
+}
+
+enum ProjectMemberRole {
+  manager
+  engineer
+  worker
+  member
+  viewer
+
+  @@map("project_member_role")
+}
+
+enum BoqStatus {
+  draft
+  finalized
+  superseded
+
+  @@map("boq_status")
+}
+
+enum QuotationStatus {
+  draft
+  sent
+  approved
+  rejected
+  revised
+
+  @@map("quotation_status")
+}
+
+// Shared by expenses and purchase orders (docs/02 §6 approval_status)
+enum ApprovalStatus {
+  draft
+  pending
+  approved
+  rejected
+
+  @@map("approval_status")
+}
+
+enum PoStatus {
+  draft
+  approved
+  sent
+  partially_received
+  received
+  closed
+  cancelled
+
+  @@map("po_status")
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  blocked
+  done
+
+  @@map("task_status")
+}
+
+enum PaymentDirection {
+  incoming
+  outgoing
+
+  @@map("payment_direction")
+}
+
+enum PaymentMethod {
+  cash
+  bank_transfer
+  cheque
+  card
+  upi
+  other
+
+  @@map("payment_method")
+}
+
+enum PayrollStatus {
+  draft
+  approved
+  paid
+
+  @@map("payroll_status")
+}
+
+enum DocumentVisibility {
+  internal
+  client
+  partner
+
+  @@map("document_visibility")
+}
+
+enum PhotoPhase {
+  before
+  during
+  after
+
+  @@map("photo_phase")
+}
+
+// ----------------------------------------------------------------------------
+// Identity (maps to existing `profiles` table — see 0001_auth_profiles.sql)
+// ----------------------------------------------------------------------------
+
+model User {
+  id        String   @id @db.Uuid
+  email     String?
+  fullName  String?  @map("full_name")
+  role      UserRole @default(client)
+  status    String   @default("active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  managedProjects   Project[]       @relation("ProjectManager")
+  memberships       ProjectMember[]
+  assignedTasks     Task[]          @relation("TaskAssignee")
+  uploadedDocuments Document[]      @relation("DocumentUploader")
+  uploadedPhotos    Photo[]         @relation("PhotoUploader")
+  notifications     Notification[]
+  payrollEntries    Payroll[]       @relation("PayrollUser")
+  expensesSpent     Expense[]       @relation("ExpenseSpender")
+
+  @@map("profiles")
+}
+
+// ----------------------------------------------------------------------------
+// CRM / Clients
+// ----------------------------------------------------------------------------
+
+model Client {
+  id             String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String
+  type           String   @default("individual") // individual | business
+  primaryEmail   String?  @map("primary_email")
+  primaryPhone   String?  @map("primary_phone")
+  billingAddress String?  @map("billing_address")
+  portalUserId   String?  @map("portal_user_id") @db.Uuid // -> profiles.id (FK in SQL)
+  createdById    String?  @map("created_by") @db.Uuid
+  updatedById    String?  @map("updated_by") @db.Uuid
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  projects   Project[]
+  quotations Quotation[]
+  payments   Payment[]
+
+  @@index([name])
+  @@index([portalUserId])
+  @@map("clients")
+}
+
+// ----------------------------------------------------------------------------
+// Projects & delivery
+// ----------------------------------------------------------------------------
+
+model Project {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code          String        @unique
+  name          String
+  clientId      String        @map("client_id") @db.Uuid
+  managerId     String?       @map("manager_id") @db.Uuid
+  status        ProjectStatus @default(planning)
+  startDate     DateTime?     @map("start_date") @db.Date
+  endDate       DateTime?     @map("end_date") @db.Date
+  contractValue Decimal?      @map("contract_value") @db.Decimal(14, 2)
+  budgetCost    Decimal?      @map("budget_cost") @db.Decimal(14, 2)
+  actualCost    Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
+  createdById   String?       @map("created_by") @db.Uuid
+  updatedById   String?       @map("updated_by") @db.Uuid
+  createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  client             Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  manager            User?           @relation("ProjectManager", fields: [managerId], references: [id], onDelete: SetNull)
+  members            ProjectMember[]
+  boqs               Boq[]
+  quotations         Quotation[]
+  expenses           Expense[]
+  payments           Payment[]
+  purchaseOrders     PurchaseOrder[]
+  tasks              Task[]
+  documents          Document[]
+  photos             Photo[]
+  payrollAllocations Payroll[]       @relation("PayrollProject")
+
+  @@index([clientId])
+  @@index([managerId])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id          String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String            @map("project_id") @db.Uuid
+  userId      String            @map("user_id") @db.Uuid
+  projectRole ProjectMemberRole @default(member) @map("project_role")
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@map("project_members")
+}
+
+// ----------------------------------------------------------------------------
+// Commercial — BOQ & Quotation
+// ----------------------------------------------------------------------------
+
+model Boq {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  version     Int       @default(1)
+  status      BoqStatus @default(draft)
+  totalCost   Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
+  createdById String?   @map("created_by") @db.Uuid
+  updatedById String?   @map("updated_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  items      BoqItem[]
+  quotations Quotation[]
+
+  @@unique([projectId, version])
+  @@index([projectId])
+  @@index([status])
+  @@map("boqs")
+}
+
+model BoqItem {
+  id           String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  boqId        String  @map("boq_id") @db.Uuid
+  materialId   String? @map("material_id") @db.Uuid
+  section      String?
+  description  String
+  unit         String?
+  quantity     Decimal @default(0) @db.Decimal(14, 3)
+  materialRate Decimal @default(0) @map("material_rate") @db.Decimal(14, 2)
+  laborRate    Decimal @default(0) @map("labor_rate") @db.Decimal(14, 2)
+  lineCost     Decimal @default(0) @map("line_cost") @db.Decimal(14, 2)
+  sortOrder    Int     @default(0) @map("sort_order")
+
+  boq      Boq       @relation(fields: [boqId], references: [id], onDelete: Cascade)
+  material Material? @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([boqId])
+  @@index([materialId])
+  @@map("boq_items")
+}
+
+model Quotation {
+  id          String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationNo String          @unique @map("quotation_no")
+  boqId       String?         @map("boq_id") @db.Uuid
+  projectId   String          @map("project_id") @db.Uuid
+  clientId    String          @map("client_id") @db.Uuid
+  version     Int             @default(1)
+  marginPct   Decimal         @default(0) @map("margin_pct") @db.Decimal(6, 2)
+  discount    Decimal         @default(0) @db.Decimal(14, 2)
+  taxPct      Decimal         @default(0) @map("tax_pct") @db.Decimal(6, 2)
+  subtotal    Decimal         @default(0) @db.Decimal(14, 2)
+  total       Decimal         @default(0) @db.Decimal(14, 2)
+  status      QuotationStatus @default(draft)
+  sentAt      DateTime?       @map("sent_at") @db.Timestamptz(6)
+  approvedAt  DateTime?       @map("approved_at") @db.Timestamptz(6)
+  createdById String?         @map("created_by") @db.Uuid
+  updatedById String?         @map("updated_by") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
+
+  boq     Boq?            @relation(fields: [boqId], references: [id], onDelete: SetNull)
+  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client  Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  items   QuotationItem[]
+
+  @@index([projectId])
+  @@index([clientId])
+  @@index([status])
+  @@map("quotations")
+}
+
+model QuotationItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  quotationId String  @map("quotation_id") @db.Uuid
+  description String
+  unit        String?
+  quantity    Decimal @default(0) @db.Decimal(14, 3)
+  unitPrice   Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(14, 2)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  quotation Quotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  @@index([quotationId])
+  @@map("quotation_items")
+}
+
+// ----------------------------------------------------------------------------
+// Finance — Expenses, Payments, Payroll
+// ----------------------------------------------------------------------------
+
+model Expense {
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String?        @map("project_id") @db.Uuid // null = overhead
+  spentById   String?        @map("spent_by") @db.Uuid
+  category    String
+  description String?
+  amount      Decimal        @default(0) @db.Decimal(14, 2)
+  status      ApprovalStatus @default(draft)
+  isBillable  Boolean        @default(true) @map("is_billable")
+  receiptUrl  String?        @map("receipt_url")
+  incurredAt  DateTime       @default(now()) @map("incurred_at") @db.Timestamptz(6)
+  approvedAt  DateTime?      @map("approved_at") @db.Timestamptz(6)
+  createdById String?        @map("created_by") @db.Uuid
+  updatedById String?        @map("updated_by") @db.Uuid
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  project Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  spender User?         @relation("ExpenseSpender", fields: [spentById], references: [id], onDelete: SetNull)
+  items   ExpenseItem[]
+
+  @@index([projectId])
+  @@index([spentById])
+  @@index([status])
+  @@map("expenses")
+}
+
+model ExpenseItem {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  expenseId   String  @map("expense_id") @db.Uuid
+  description String
+  quantity    Decimal @default(1) @db.Decimal(14, 3)
+  unitPrice   Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
+  lineTotal   Decimal @default(0) @map("line_total") @db.Decimal(14, 2)
+  sortOrder   Int     @default(0) @map("sort_order")
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+
+  @@index([expenseId])
+  @@map("expense_items")
+}
+
+model Payment {
+  id              String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  direction       PaymentDirection
+  partyType       String           @map("party_type") // client | supplier | partner
+  clientId        String?          @map("client_id") @db.Uuid
+  supplierId      String?          @map("supplier_id") @db.Uuid
+  purchaseOrderId String?          @map("purchase_order_id") @db.Uuid
+  projectId       String?          @map("project_id") @db.Uuid
+  amount          Decimal          @db.Decimal(14, 2)
+  method          PaymentMethod?
+  reference       String?
+  note            String?
+  paidAt          DateTime         @default(now()) @map("paid_at") @db.Timestamptz(6)
+  createdById     String?          @map("created_by") @db.Uuid
+  updatedById     String?          @map("updated_by") @db.Uuid
+  createdAt       DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  client        Client?        @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  supplier      Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrder PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id], onDelete: SetNull)
+  project       Project?       @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([clientId])
+  @@index([supplierId])
+  @@index([purchaseOrderId])
+  @@index([projectId])
+  @@index([paidAt])
+  @@map("payments")
+}
+
+model Payroll {
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  projectId   String?       @map("project_id") @db.Uuid // optional labor-cost allocation
+  periodStart DateTime      @map("period_start") @db.Date
+  periodEnd   DateTime      @map("period_end") @db.Date
+  daysWorked  Decimal       @default(0) @map("days_worked") @db.Decimal(6, 2)
+  gross       Decimal       @default(0) @db.Decimal(14, 2)
+  allowances  Decimal       @default(0) @db.Decimal(14, 2)
+  deductions  Decimal       @default(0) @db.Decimal(14, 2)
+  net         Decimal       @default(0) @db.Decimal(14, 2)
+  status      PayrollStatus @default(draft)
+  paidAt      DateTime?     @map("paid_at") @db.Timestamptz(6)
+  createdById String?       @map("created_by") @db.Uuid
+  updatedById String?       @map("updated_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user    User     @relation("PayrollUser", fields: [userId], references: [id], onDelete: Restrict)
+  project Project? @relation("PayrollProject", fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, periodStart, periodEnd])
+  @@index([userId])
+  @@index([projectId])
+  @@index([status])
+  @@map("payroll")
+}
+
+// ----------------------------------------------------------------------------
+// Procurement & inventory
+// ----------------------------------------------------------------------------
+
+model Supplier {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  contactName  String?  @map("contact_name")
+  email        String?
+  phone        String?
+  paymentTerms String?  @map("payment_terms")
+  rating       Int?
+  createdById  String?  @map("created_by") @db.Uuid
+  updatedById  String?  @map("updated_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  materials      Material[]
+  purchaseOrders PurchaseOrder[]
+  payments       Payment[]
+
+  @@index([name])
+  @@map("suppliers")
+}
+
+model Material {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name         String
+  sku          String?  @unique
+  unit         String
+  category     String?
+  unitCost     Decimal  @default(0) @map("unit_cost") @db.Decimal(14, 2)
+  onHandQty    Decimal  @default(0) @map("on_hand_qty") @db.Decimal(14, 3)
+  reorderLevel Decimal  @default(0) @map("reorder_level") @db.Decimal(14, 3)
+  supplierId   String?  @map("supplier_id") @db.Uuid
+  createdById  String?  @map("created_by") @db.Uuid
+  updatedById  String?  @map("updated_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  supplier Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  boqItems BoqItem[]
+  poItems  PurchaseOrderItem[]
+
+  @@index([name])
+  @@index([supplierId])
+  @@map("materials")
+}
+
+model PurchaseOrder {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  poNo         String    @unique @map("po_no")
+  supplierId   String    @map("supplier_id") @db.Uuid
+  projectId    String?   @map("project_id") @db.Uuid
+  status       PoStatus  @default(draft)
+  total        Decimal   @default(0) @db.Decimal(14, 2)
+  expectedDate DateTime? @map("expected_date") @db.Date
+  orderedAt    DateTime? @map("ordered_at") @db.Timestamptz(6)
+  createdById  String?   @map("created_by") @db.Uuid
+  updatedById  String?   @map("updated_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  supplier Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  project  Project?            @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items    PurchaseOrderItem[]
+  payments Payment[]
+
+  @@index([supplierId])
+  @@index([projectId])
+  @@index([status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id              String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  purchaseOrderId String  @map("purchase_order_id") @db.Uuid
+  materialId      String? @map("material_id") @db.Uuid
+  description     String
+  unit            String?
+  quantity        Decimal @default(0) @db.Decimal(14, 3)
+  unitPrice       Decimal @default(0) @map("unit_price") @db.Decimal(14, 2)
+  lineTotal       Decimal @default(0) @map("line_total") @db.Decimal(14, 2)
+  receivedQty     Decimal @default(0) @map("received_qty") @db.Decimal(14, 3)
+  sortOrder       Int     @default(0) @map("sort_order")
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  material      Material?     @relation(fields: [materialId], references: [id], onDelete: SetNull)
+
+  @@index([purchaseOrderId])
+  @@index([materialId])
+  @@map("purchase_order_items")
+}
+
+// ----------------------------------------------------------------------------
+// Tasks, documents, photos, notifications
+// ----------------------------------------------------------------------------
+
+model Task {
+  id           String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String     @map("project_id") @db.Uuid
+  parentTaskId String?    @map("parent_task_id") @db.Uuid
+  assigneeId   String?    @map("assignee_id") @db.Uuid
+  name         String
+  description  String?
+  status       TaskStatus @default(todo)
+  progressPct  Decimal    @default(0) @map("progress_pct") @db.Decimal(5, 2)
+  plannedStart DateTime?  @map("planned_start") @db.Date
+  plannedEnd   DateTime?  @map("planned_end") @db.Date
+  sortOrder    Int        @default(0) @map("sort_order")
+  createdById  String?    @map("created_by") @db.Uuid
+  updatedById  String?    @map("updated_by") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  parent   Task?   @relation("TaskHierarchy", fields: [parentTaskId], references: [id], onDelete: SetNull)
+  subtasks Task[]  @relation("TaskHierarchy")
+  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  photos   Photo[]
+
+  @@index([projectId])
+  @@index([assigneeId])
+  @@index([parentTaskId])
+  @@index([status])
+  @@map("tasks")
+}
+
+model Document {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String?            @map("project_id") @db.Uuid
+  uploadedById String?           @map("uploaded_by") @db.Uuid
+  category    String
+  title       String
+  fileUrl     String             @map("file_url")
+  fileName    String?            @map("file_name")
+  mimeType    String?            @map("mime_type")
+  sizeBytes   BigInt?            @map("size_bytes")
+  version     Int                @default(1)
+  visibility  DocumentVisibility @default(internal)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt   DateTime?          @map("deleted_at") @db.Timestamptz(6)
+
+  project  Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  uploader User?    @relation("DocumentUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([visibility])
+  @@map("documents")
+}
+
+model Photo {
+  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  taskId       String?     @map("task_id") @db.Uuid
+  uploadedById String?     @map("uploaded_by") @db.Uuid
+  fileUrl      String      @map("file_url")
+  caption      String?
+  phase        PhotoPhase?
+  takenAt      DateTime?   @map("taken_at") @db.Timestamptz(6)
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt    DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  task     Task?   @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  uploader User?   @relation("PhotoUploader", fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([projectId])
+  @@index([taskId])
+  @@map("photos")
+}
+
+model Notification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  type       String
+  title      String
+  body       String?
+  entityType String?  @map("entity_type")
+  entityId   String?  @map("entity_id") @db.Uuid
+  isRead     Boolean  @default(false) @map("is_read")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
