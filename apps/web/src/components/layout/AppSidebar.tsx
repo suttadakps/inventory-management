@@ -9,8 +9,8 @@ import { cn } from "@/lib/utils/cn";
 type Item = { label: string; href?: string };
 
 /**
- * Sidebar navigation for the dashboard shell. Labels mirror the ARTIVERGES
- * NEXT design reference (Thai). Items without a route yet render as muted,
+ * Left navigation for the ARTIVERGES NEXT operations shell (Thai labels, per
+ * the design reference). Items without a route yet render as muted,
  * non-clickable entries so we never link to a page that does not exist.
  */
 const NAV: Item[] = [
@@ -25,7 +25,7 @@ const NAV: Item[] = [
   { label: "พาร์ทเนอร์แนะนำงาน" },
 ];
 
-export function DashboardSidebar({ roleLabel }: { roleLabel: string }) {
+export function AppSidebar({ roleLabel }: { roleLabel: string }) {
   const pathname = usePathname();
 
   return (

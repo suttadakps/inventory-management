@@ -22,9 +22,11 @@ export type ProjectListItem = {
   clientName: string;
   status: ProjectStatus;
   budget: number | null;
+  contractValue: number | null;
   progress: number;
   startDate: string | null;
   endDate: string | null;
+  updatedAt: string;
   managerName: string | null;
   siteEngineerName: string | null;
   archived: boolean;
@@ -101,9 +103,11 @@ function toListItem(p: ProjectRecord): ProjectListItem {
     clientName: p.client.name,
     status: p.status,
     budget: dec(p.budgetCost),
+    contractValue: dec(p.contractValue),
     progress: p.progressPct.toNumber(),
     startDate: isoDate(p.startDate),
     endDate: isoDate(p.endDate),
+    updatedAt: p.updatedAt.toISOString(),
     managerName: displayName(p.manager),
     siteEngineerName: displayName(engineer),
     archived: p.deletedAt !== null,
