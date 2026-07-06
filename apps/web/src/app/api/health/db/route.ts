@@ -21,7 +21,13 @@ export async function GET() {
         ok: false,
         name: e.name ?? "Error",
         code: e.code ?? null,
-        message: (e.message ?? "").split("\n").slice(0, 4).join(" ").slice(0, 300),
+        // Redact any credentials that might appear in a URL, then return full text.
+        message: (e.message ?? "")
+          .replace(/\/\/[^@\s]*@/g, "//REDACTED@")
+          .replace(/\s+/g, " ")
+          .slice(0, 800),
+        dbUrlPrefix: (process.env.DATABASE_URL ?? "<undefined>").slice(0, 12),
+        dbUrlLen: (process.env.DATABASE_URL ?? "").length,
       },
       { status: 500 }
     );
