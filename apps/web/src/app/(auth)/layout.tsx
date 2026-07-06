@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 export default function AuthLayout({
   children,
 }: {
@@ -7,11 +9,15 @@ export default function AuthLayout({
     <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4 py-12">
       <div className="w-full max-w-md">
         <div className="mb-10 text-center">
-          <div className="mb-2 inline-block">
-            <div className="text-h1 font-bold tracking-tight">
-              <span className="text-primary-700">ARTIVERGES</span>
-              <span className="text-accent-600 ml-2">NEXT</span>
-            </div>
+          <div className="mb-4">
+            <Image
+              src="/artiverges-next-logo.png"
+              alt="ARTIVERGES NEXT - Creative Construction Turnkey"
+              width={400}
+              height={120}
+              priority
+              style={{ height: "auto", width: "auto" }}
+            />
           </div>
           <p className="text-body text-text-secondary font-medium">
             ระบบจัดการโครงการ
