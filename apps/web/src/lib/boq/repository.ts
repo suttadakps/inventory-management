@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth/session";
 import { sumTotals, type BoqTotals, type ItemCosts } from "./calc";
 import { visibleStatusesFor } from "./permissions";
+import { canViewAllProjects } from "@/lib/projects/permissions";
 
 /**
  * BOQ repository (repository pattern). Sole data-access point for BOQs;
@@ -809,4 +810,71 @@ export async function updateBoqHeader(
   if (patch.vatEnabled !== undefined) data.vatEnabled = patch.vatEnabled;
   if (patch.whtEnabled !== undefined) data.whtEnabled = patch.whtEnabled;
   await prisma.boq.update({ where: { id: boqId }, data });
+}
+
+// ---- Global BOQ list (across all projects in the user's scope) ---------------
+
+function boqProjectScope(user: CurrentUser): Prisma.ProjectWhereInput {
+  if (canViewAllProjects(user.role)) return {};
+  if (user.role === "client") return { client: { portalUserId: user.id } };
+  return {
+    OR: [
+      { managerId: user.id },
+      { members: { some: { userId: user.id } } },
+    ],
+  };
+}
+
+export type BoqGlobalRow = {
+  id: string;
+  title: string | null;
+  status: BoqStatus;
+  version: number;
+  updatedAt: string;
+  grandTotal: number;
+  project: { id: string; name: string; code: string; clientName: string };
+};
+
+export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
+  const boqs = await prisma.boq.findMany({
+    where: { deletedAt: null, project: boqProjectScope(user) },
+    orderBy: { updatedAt: "desc" },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          client: { select: { name: true } },
+        },
+      },
+      lineItems: { select: { quantity: true, sellingPrice: true } },
+    },
+    take: 300,
+  });
+
+  const visible = visibleStatusesFor(user.role);
+
+  return boqs
+    .filter((b) => !visible || visible.includes(b.status))
+    .map((b) => {
+      const lines = b.lineItems.map((i) => ({
+        total: round2(i.quantity.toNumber() * i.sellingPrice.toNumber()),
+      }));
+      const { grandTotal } = computeFlatTotals(lines, b.vatEnabled, b.whtEnabled);
+      return {
+        id: b.id,
+        title: b.title,
+        status: b.status,
+        version: b.version,
+        updatedAt: b.updatedAt.toISOString(),
+        grandTotal,
+        project: {
+          id: b.project.id,
+          name: b.project.name,
+          code: b.project.code,
+          clientName: b.project.client.name,
+        },
+      };
+    });
 }
