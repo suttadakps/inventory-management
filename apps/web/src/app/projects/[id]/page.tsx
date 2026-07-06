@@ -99,6 +99,12 @@ export default async function ProjectDetailPage({
             >
               Quotations
             </Link>
+            <Link
+              href="/contracts"
+              className="inline-flex h-9 items-center rounded-sm border border-primary-600 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
+            >
+              Contracts
+            </Link>
             {canEdit && !project.archived && (
               <Link
                 href={`/projects/${project.id}/edit`}
