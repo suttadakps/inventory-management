@@ -29,7 +29,7 @@ export function AppSidebar({ roleLabel }: { roleLabel: string }) {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-[#e7e1d5] bg-[#fbfaf6] lg:flex">
+    <aside className="hidden w-64 shrink-0 flex-col border-r border-[#e7e1d5] bg-[#fbfaf6] lg:flex print:!hidden">
       <div className="px-6 pb-6 pt-6">
         <Image
           src="/artiverges-next-logo.png"

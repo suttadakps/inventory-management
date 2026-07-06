@@ -7,10 +7,10 @@ import { BoqPrintDocument } from "@/components/boq/BoqPrintDocument";
 
 export const metadata: Metadata = { title: "BOQ — Print · ARTIVERGES NEXT" };
 
-export default async function BoqPrintPage({
+export default async function StandaloneBoqPrintPage({
   params,
 }: {
-  params: Promise<{ id: string; boqId: string }>;
+  params: Promise<{ boqId: string }>;
 }) {
   const user = await requireUser();
   const { boqId } = await params;

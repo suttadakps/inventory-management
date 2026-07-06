@@ -232,6 +232,8 @@ export async function getBoqTree(
     },
   });
   if (!b) return null;
+  // The hierarchical tree view only applies to project-bound BOQs.
+  if (!b.projectId || !b.project) return null;
 
   const scope = await loadProjectScope(b.projectId);
   if (!scope || !canViewProject(user, scope)) return null;
@@ -277,7 +279,11 @@ export async function listSupplierOptions(): Promise<SupplierOption[]> {
 
 // ---- Authz context resolvers ------------------------------------------------
 
-export type BoqContext = { boqId: string; status: BoqStatus; projectId: string };
+export type BoqContext = {
+  boqId: string;
+  status: BoqStatus;
+  projectId: string | null;
+};
 
 export async function getBoqContext(boqId: string): Promise<BoqContext | null> {
   const b = await prisma.boq.findUnique({
@@ -661,7 +667,7 @@ export type BoqFlatDoc = {
   proposerName: string | null;
   vatEnabled: boolean;
   whtEnabled: boolean;
-  project: { id: string; name: string; code: string; clientName: string };
+  project: { id: string; name: string; code: string; clientName: string } | null;
   lines: BoqFlatLine[];
   subtotal: number;
   vat: number;
@@ -706,8 +712,14 @@ export async function getBoqFlat(
   });
   if (!b) return null;
 
-  const scope = await loadProjectScope(b.projectId);
-  if (!scope || !canViewProject(user, scope)) return null;
+  // Standalone BOQ (no project): internal staff or the creator may view it.
+  if (b.projectId === null) {
+    const internal = ["owner", "admin", "ae"].includes(user.role);
+    if (!internal && b.createdById !== user.id) return null;
+  } else {
+    const scope = await loadProjectScope(b.projectId);
+    if (!scope || !canViewProject(user, scope)) return null;
+  }
 
   const lines: BoqFlatLine[] = b.lineItems.map((i) => {
     const quantity = i.quantity.toNumber();
@@ -732,15 +744,28 @@ export async function getBoqFlat(
     proposerName: b.proposerName,
     vatEnabled: b.vatEnabled,
     whtEnabled: b.whtEnabled,
-    project: {
-      id: b.project.id,
-      name: b.project.name,
-      code: b.project.code,
-      clientName: b.project.client.name,
-    },
+    project: b.project
+      ? {
+          id: b.project.id,
+          name: b.project.name,
+          code: b.project.code,
+          clientName: b.project.client.name,
+        }
+      : null,
     lines,
     ...computeFlatTotals(lines, b.vatEnabled, b.whtEnabled),
   };
+}
+
+export async function createStandaloneBoq(
+  title: string | undefined,
+  actorId: string
+): Promise<string> {
+  const created = await prisma.boq.create({
+    data: { title, createdById: actorId },
+    select: { id: true },
+  });
+  return created.id;
 }
 
 export async function addFlatLine(boqId: string): Promise<string> {
@@ -832,12 +857,21 @@ export type BoqGlobalRow = {
   version: number;
   updatedAt: string;
   grandTotal: number;
-  project: { id: string; name: string; code: string; clientName: string };
+  project: { id: string; name: string; code: string; clientName: string } | null;
 };
 
 export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
+  const internal = canViewAllProjects(user.role);
+  // Standalone BOQs (no project): internal staff see all; others see own.
+  const standalone: Prisma.BoqWhereInput = internal
+    ? { projectId: null }
+    : { projectId: null, createdById: user.id };
+
   const boqs = await prisma.boq.findMany({
-    where: { deletedAt: null, project: boqProjectScope(user) },
+    where: {
+      deletedAt: null,
+      OR: [{ project: boqProjectScope(user) }, standalone],
+    },
     orderBy: { updatedAt: "desc" },
     include: {
       project: {
@@ -869,12 +903,14 @@ export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
         version: b.version,
         updatedAt: b.updatedAt.toISOString(),
         grandTotal,
-        project: {
-          id: b.project.id,
-          name: b.project.name,
-          code: b.project.code,
-          clientName: b.project.client.name,
-        },
+        project: b.project
+          ? {
+              id: b.project.id,
+              name: b.project.name,
+              code: b.project.code,
+              clientName: b.project.client.name,
+            }
+          : null,
       };
     });
 }

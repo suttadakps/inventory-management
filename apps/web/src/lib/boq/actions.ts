@@ -21,9 +21,11 @@ const fail = (error: string): BoqActionResult => ({ ok: false, error });
 
 async function ensureProjectScope(
   user: CurrentUser,
-  projectId: string
+  projectId: string | null
 ): Promise<boolean> {
   if (["owner", "admin", "ae"].includes(user.role)) return true;
+  // Standalone BOQ (no project): only internal staff (handled above) may edit.
+  if (!projectId) return false;
   const scope = await repo.loadProjectScope(projectId);
   return !!scope && repo.canViewProject(user, scope);
 }
@@ -42,21 +44,33 @@ async function authorizeEdit(
   return ctx;
 }
 
-function revalidateBoq(ctx: { projectId: string; boqId: string }) {
-  revalidatePath(`/projects/${ctx.projectId}/boq/${ctx.boqId}`);
+function revalidateBoq(ctx: { projectId: string | null; boqId: string }) {
+  if (ctx.projectId) {
+    revalidatePath(`/projects/${ctx.projectId}/boq/${ctx.boqId}`);
+  } else {
+    revalidatePath(`/boq/${ctx.boqId}`);
+  }
 }
 
 // ---- Lifecycle (managers) ---------------------------------------------------
 
 export async function createBoqAction(formData: FormData): Promise<void> {
   const user = await requireUser();
-  const projectId = String(formData.get("projectId") ?? "");
-  if (!projectId) throw new Error("Missing project.");
   if (!canManageBoq(user.role)) throw new Error("Not authorized.");
+
+  const projectId = String(formData.get("projectId") ?? "").trim();
+  const title = String(formData.get("title") ?? "").trim() || undefined;
+
+  // No project chosen → create a standalone (project-less) BOQ document.
+  if (!projectId) {
+    const standaloneId = await repo.createStandaloneBoq(title, user.id);
+    revalidatePath("/boq");
+    redirect(`/boq/${standaloneId}`);
+  }
+
   if (!(await ensureProjectScope(user, projectId)))
     throw new Error("Not authorized for this project.");
 
-  const title = String(formData.get("title") ?? "").trim() || undefined;
   const id = await repo.createBoq(projectId, title, user.id);
   revalidatePath(`/projects/${projectId}/boq`);
   redirect(`/projects/${projectId}/boq/${id}`);

@@ -23,11 +23,11 @@ const cellInput =
 export function BoqFlatEditor({
   doc,
   editable,
-  projectId,
+  printHref,
 }: {
   doc: BoqFlatDoc;
   editable: boolean;
-  projectId: string;
+  printHref: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -85,7 +85,7 @@ export function BoqFlatEditor({
           className="h-11 w-full max-w-md rounded-md border border-[#e2ddd0] bg-white px-3 text-body font-medium text-text-primary focus:border-primary-600 focus:outline-none"
         />
         <Link
-          href={`/projects/${projectId}/boq/${doc.id}/print`}
+          href={printHref}
           target="_blank"
           className="inline-flex h-10 items-center justify-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white transition-colors hover:bg-primary-600"
         >

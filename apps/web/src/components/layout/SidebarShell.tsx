@@ -35,7 +35,7 @@ export async function SidebarShell({
       <AppSidebar roleLabel={roleTh} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-4 border-b border-[#e7e1d5] px-6 py-5">
+        <header className="flex items-center justify-between gap-4 border-b border-[#e7e1d5] px-6 py-5 print:hidden">
           <div>
             <h1 className="text-h1 font-bold text-text-primary">{title}</h1>
             {subtitle && (

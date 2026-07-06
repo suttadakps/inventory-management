@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/session";
 import {
@@ -50,30 +50,33 @@ function WorkflowButton({
   );
 }
 
-export default async function BoqDetailPage({
+export default async function StandaloneBoqDetailPage({
   params,
 }: {
-  params: Promise<{ id: string; boqId: string }>;
+  params: Promise<{ boqId: string }>;
 }) {
   const user = await requireUser();
-  const { id: projectId, boqId } = await params;
+  const { boqId } = await params;
 
   const doc = await getBoqFlat(user, boqId);
   if (!doc) notFound();
+
+  // A project-bound BOQ opened via /boq/:id — send it to its project route.
+  if (doc.project) {
+    redirect(`/projects/${doc.project.id}/boq/${boqId}`);
+  }
 
   const editable = isBoqEditable(user.role, doc.status);
   const canApprove = canApproveBoq(user.role);
   const canManage = canManageBoq(user.role);
 
-  // Remount the editor with fresh state only when the line set changes
-  // (add/remove), leaving inline field edits undisturbed.
   const signature = `${doc.lines.length}:${doc.lines.map((l) => l.id).join(",")}`;
 
   return (
     <div className="space-y-5">
       <div>
         <Link
-          href={`/projects/${projectId}/boq`}
+          href="/boq"
           className="text-body-sm text-text-secondary hover:underline"
         >
           ← BOQ / ใบเสนอราคา
@@ -85,10 +88,7 @@ export default async function BoqDetailPage({
             </h2>
             <BoqStatusBadge status={doc.status} />
             <span className="text-body-sm text-text-secondary">
-              v{doc.version}
-              {doc.project
-                ? ` · ${doc.project.code} · ${doc.project.clientName}`
-                : ""}
+              เอกสารเดี่ยว (ไม่ผูกโปรเจค)
             </span>
           </div>
 
@@ -133,7 +133,7 @@ export default async function BoqDetailPage({
         key={signature}
         doc={doc}
         editable={editable}
-        printHref={`/projects/${projectId}/boq/${boqId}/print`}
+        printHref={`/boq/${boqId}/print`}
       />
     </div>
   );

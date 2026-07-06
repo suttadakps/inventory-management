@@ -30,40 +30,44 @@ export default async function BoqIndexPage() {
 
   return (
     <div className="space-y-4">
-      {/* Create a new BOQ under a chosen project */}
-      {canManage && projects.length > 0 && (
+      {/* Create a new BOQ — standalone by default, or under a project */}
+      {canManage && (
         <ContentCard className="p-4">
           <form
             action={createBoqAction}
             className="flex flex-wrap items-end gap-3"
           >
-            <div className="min-w-56 flex-1 space-y-1.5">
-              <label
-                htmlFor="projectId"
-                className="text-body-sm font-medium text-text-primary"
-              >
-                เลือกโปรเจค
-              </label>
-              <Select id="projectId" name="projectId" required defaultValue="">
-                <option value="" disabled>
-                  — เลือกโปรเจค —
-                </option>
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.code})
-                  </option>
-                ))}
-              </Select>
-            </div>
             <div className="min-w-48 flex-1 space-y-1.5">
               <label
                 htmlFor="title"
                 className="text-body-sm font-medium text-text-primary"
               >
-                หัวข้อ BOQ (ไม่บังคับ)
+                ชื่อโปรเจค / หัวข้อ BOQ
               </label>
-              <Input id="title" name="title" placeholder="เช่น BOQ หลัก" />
+              <Input
+                id="title"
+                name="title"
+                placeholder="เช่น สนาม Pickleball — BOQ"
+              />
             </div>
+            {projects.length > 0 && (
+              <div className="min-w-56 flex-1 space-y-1.5">
+                <label
+                  htmlFor="projectId"
+                  className="text-body-sm font-medium text-text-primary"
+                >
+                  ผูกกับโปรเจค (ไม่บังคับ)
+                </label>
+                <Select id="projectId" name="projectId" defaultValue="">
+                  <option value="">— ไม่ผูกโปรเจค (สร้างเดี่ยว) —</option>
+                  {projects.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} ({p.code})
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            )}
             <button
               type="submit"
               className="inline-flex h-10 items-center justify-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white transition-colors hover:bg-primary-600"
@@ -80,19 +84,9 @@ export default async function BoqIndexPage() {
             ยังไม่มี BOQ
           </p>
           <p className="mt-1 text-body-sm text-text-secondary">
-            {canManage && projects.length > 0 ? (
-              "เลือกโปรเจคด้านบนแล้วกด “+ สร้าง BOQ ใหม่” เพื่อเริ่มต้น"
-            ) : (
-              <>
-                เปิดโปรเจคแล้วสร้าง BOQ เพื่อเริ่มต้น —{" "}
-                <Link
-                  href="/projects"
-                  className="text-primary-700 hover:underline"
-                >
-                  ไปที่โปรเจค
-                </Link>
-              </>
-            )}
+            {canManage
+              ? "กรอกชื่อ แล้วกด “+ สร้าง BOQ ใหม่” ด้านบนเพื่อเริ่มต้น"
+              : "ยังไม่มีเอกสาร BOQ"}
           </p>
         </div>
       ) : (
@@ -112,7 +106,11 @@ export default async function BoqIndexPage() {
                 <tr key={b.id} className="hover:bg-[#faf8f3]">
                   <td className="px-6 py-4 align-top">
                     <Link
-                      href={`/projects/${b.project.id}/boq/${b.id}`}
+                      href={
+                        b.project
+                          ? `/projects/${b.project.id}/boq/${b.id}`
+                          : `/boq/${b.id}`
+                      }
                       className="font-semibold text-text-primary hover:underline"
                     >
                       {b.title || `BOQ v${b.version}`}
@@ -122,15 +120,21 @@ export default async function BoqIndexPage() {
                     </div>
                   </td>
                   <td className="px-6 py-4 align-top">
-                    <Link
-                      href={`/projects/${b.project.id}`}
-                      className="text-text-primary hover:underline"
-                    >
-                      {b.project.name}
-                    </Link>
-                    <div className="text-caption text-text-secondary">
-                      {b.project.code} · {b.project.clientName}
-                    </div>
+                    {b.project ? (
+                      <>
+                        <Link
+                          href={`/projects/${b.project.id}`}
+                          className="text-text-primary hover:underline"
+                        >
+                          {b.project.name}
+                        </Link>
+                        <div className="text-caption text-text-secondary">
+                          {b.project.code} · {b.project.clientName}
+                        </div>
+                      </>
+                    ) : (
+                      <span className="text-text-secondary">เอกสารเดี่ยว</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 align-top">
                     <BoqStatusBadge status={b.status} />

@@ -321,7 +321,9 @@ export async function generateFromBoq(
       },
     },
   });
-  if (!boq) throw new Error("Approved BOQ not found for this project.");
+  if (!boq || !boq.project)
+    throw new Error("Approved BOQ not found for this project.");
+  const clientId = boq.project.clientId;
 
   // Snapshot selling lines from the BOQ.
   const lines: {
@@ -373,7 +375,7 @@ export async function generateFromBoq(
       data: {
         quotationNo,
         projectId,
-        clientId: boq.project.clientId,
+        clientId,
         boqId: boq.id,
         version,
         title: boq.title ? `Quotation — ${boq.title}` : `Quotation v${version}`,

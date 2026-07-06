@@ -305,7 +305,7 @@ model ProjectMember {
 
 model Boq {
   id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId    String    @map("project_id") @db.Uuid
+  projectId    String?   @map("project_id") @db.Uuid
   version      Int       @default(1)
   status       BoqStatus @default(draft)
   title        String?
@@ -323,7 +323,7 @@ model Boq {
   updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project    Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sections   BoqSection[]
   lineItems  BoqItem[]    @relation("BoqLineItems")
   quotations Quotation[]
