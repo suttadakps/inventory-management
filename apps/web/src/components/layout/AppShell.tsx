@@ -11,6 +11,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/projects", label: "Projects" },
   { href: "/clients", label: "Clients" },
+  { href: "/contracts", label: "Contracts" },
 ];
 
 function NavLink({

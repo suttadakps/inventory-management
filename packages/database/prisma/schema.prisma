@@ -106,6 +106,33 @@ enum PoStatus {
   @@map("po_status")
 }
 
+enum ContractStatus {
+  draft
+  pending_approval
+  approved
+  signed
+  cancelled
+  completed
+
+  @@map("contract_status")
+}
+
+enum MilestonePaymentStatus {
+  unpaid
+  partial
+  paid
+
+  @@map("milestone_payment_status")
+}
+
+enum MilestoneInvoiceStatus {
+  not_invoiced
+  invoiced
+  paid
+
+  @@map("milestone_invoice_status")
+}
+
 enum TaskStatus {
   todo
   in_progress
@@ -206,6 +233,7 @@ model Client {
   projects   Project[]
   quotations Quotation[]
   payments   Payment[]
+  contracts  Contract[]
 
   @@index([name])
   @@index([portalUserId])
@@ -248,6 +276,7 @@ model Project {
   documents          Document[]
   photos             Photo[]
   payrollAllocations Payroll[]       @relation("PayrollProject")
+  contracts          Contract[]
 
   @@index([clientId])
   @@index([managerId])
@@ -394,10 +423,11 @@ model Quotation {
   updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt     DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
-  boq     Boq?            @relation(fields: [boqId], references: [id], onDelete: SetNull)
-  project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  client  Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
-  items   QuotationItem[]
+  boq       Boq?            @relation(fields: [boqId], references: [id], onDelete: SetNull)
+  project   Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client    Client          @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  items     QuotationItem[]
+  contracts Contract[]
 
   @@index([projectId])
   @@index([clientId])
@@ -419,6 +449,135 @@ model QuotationItem {
 
   @@index([quotationId])
   @@map("quotation_items")
+}
+
+// ----------------------------------------------------------------------------
+// Commercial — Contracts
+// ----------------------------------------------------------------------------
+
+model Contract {
+  id             String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractNo     String         @unique @map("contract_no")
+  quotationId    String         @map("quotation_id") @db.Uuid
+  projectId      String         @map("project_id") @db.Uuid
+  clientId       String         @map("client_id") @db.Uuid
+  title          String?
+  version        Int            @default(1)
+  status         ContractStatus @default(draft)
+  value          Decimal        @default(0) @db.Decimal(14, 2)
+  scope          String?
+  paymentTerms   String?        @map("payment_terms")
+  warranty       String?
+  notes          String?
+  startDate      DateTime?      @map("start_date") @db.Date
+  endDate        DateTime?      @map("end_date") @db.Date
+  approvedAt     DateTime?      @map("approved_at") @db.Timestamptz(6)
+  approvedById   String?        @map("approved_by") @db.Uuid
+  signedAt       DateTime?      @map("signed_at") @db.Timestamptz(6)
+  signedById     String?        @map("signed_by") @db.Uuid
+  clientSignedAt DateTime?      @map("client_signed_at") @db.Timestamptz(6)
+  cancelledAt    DateTime?      @map("cancelled_at") @db.Timestamptz(6)
+  completedAt    DateTime?      @map("completed_at") @db.Timestamptz(6)
+  createdById    String?        @map("created_by") @db.Uuid
+  updatedById    String?        @map("updated_by") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?      @map("deleted_at") @db.Timestamptz(6)
+
+  quotation  Quotation           @relation(fields: [quotationId], references: [id], onDelete: Restrict)
+  project    Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  client     Client              @relation(fields: [clientId], references: [id], onDelete: Restrict)
+  milestones ContractMilestone[]
+  versions   ContractVersion[]
+  files      ContractFile[]
+  comments   ContractComment[]
+  logs       ContractLog[]
+
+  @@index([projectId])
+  @@index([clientId])
+  @@index([quotationId])
+  @@index([status])
+  @@map("contracts")
+}
+
+model ContractVersion {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId  String   @map("contract_id") @db.Uuid
+  version     Int
+  snapshot    Json
+  note        String?
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@unique([contractId, version])
+  @@index([contractId, version])
+  @@map("contract_versions")
+}
+
+model ContractMilestone {
+  id            String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId    String                 @map("contract_id") @db.Uuid
+  title         String
+  percentage    Decimal                @default(0) @db.Decimal(6, 3)
+  amount        Decimal                @default(0) @db.Decimal(14, 2)
+  dueDate       DateTime?              @map("due_date") @db.Date
+  paymentStatus MilestonePaymentStatus @default(unpaid) @map("payment_status")
+  invoiceStatus MilestoneInvoiceStatus @default(not_invoiced) @map("invoice_status")
+  sortOrder     Int                    @default(0) @map("sort_order")
+  createdAt     DateTime               @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, sortOrder])
+  @@map("contract_milestones")
+}
+
+model ContractFile {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId   String    @map("contract_id") @db.Uuid
+  fileName     String    @map("file_name")
+  fileUrl      String    @map("file_url")
+  mimeType     String?   @map("mime_type")
+  sizeBytes    BigInt?   @map("size_bytes")
+  uploadedById String?   @map("uploaded_by") @db.Uuid
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+  @@map("contract_files")
+}
+
+model ContractComment {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId String    @map("contract_id") @db.Uuid
+  authorId   String?   @map("author_id") @db.Uuid
+  body       String
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt  DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, createdAt])
+  @@map("contract_comments")
+}
+
+model ContractLog {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  contractId String   @map("contract_id") @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  detail     String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId, createdAt])
+  @@map("contract_logs")
 }
 
 // ----------------------------------------------------------------------------
