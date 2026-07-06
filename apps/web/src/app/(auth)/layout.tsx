@@ -4,19 +4,28 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4 py-12">
+    <main className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 px-4 py-12">
       <div className="w-full max-w-md">
-        <div className="mb-8 text-center">
-          <div className="text-h1 font-bold tracking-tight text-primary-700">
-            ARTIVERGES <span className="text-accent-600">NEXT</span>
+        <div className="mb-10 text-center">
+          <div className="mb-2 inline-block">
+            <div className="text-h1 font-bold tracking-tight">
+              <span className="text-primary-700">ARTIVERGES</span>
+              <span className="text-accent-600 ml-2">NEXT</span>
+            </div>
           </div>
-          <p className="mt-1 text-body-sm text-text-secondary">
+          <p className="text-body text-text-secondary font-medium">
+            ระบบจัดการโครงการ
+          </p>
+          <p className="text-caption text-text-secondary mt-1">
             Construction Management Platform
           </p>
         </div>
-        <div className="rounded-md border border-border bg-surface p-6 shadow-1 sm:p-8">
+        <div className="rounded-xl border border-white bg-white p-8 shadow-lg">
           {children}
         </div>
+        <p className="mt-6 text-center text-caption text-text-secondary">
+          © 2025 ARTIVERGES GROUP. All rights reserved.
+        </p>
       </div>
     </main>
   );
