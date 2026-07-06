@@ -3,320 +3,254 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
 import { prisma } from "@/lib/db";
-import { formatMoney } from "@/lib/format";
 
 export const metadata: Metadata = { title: "Dashboard · ARTIVERGES NEXT" };
+
+const baht0 = new Intl.NumberFormat("th-TH", {
+  style: "currency",
+  currency: "THB",
+  maximumFractionDigits: 0,
+});
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
+
+function baht(n: number): string {
+  return baht0.format(Number.isFinite(n) ? n : 0);
+}
+
+function num(d: unknown): number {
+  if (!d) return 0;
+  if (typeof d === "number") return d;
+  if (typeof d === "string") return parseFloat(d);
+  if (typeof d === "object" && d !== null && "toNumber" in d) {
+    return (d as { toNumber: () => number }).toNumber();
+  }
+  return 0;
+}
+
+const STATUS_TH: Record<string, { label: string; cls: string }> = {
+  planning: { label: "วางแผน", cls: "bg-[#efe9dc] text-[#8a7a55]" },
+  active: { label: "กำลังดำเนินการ", cls: "bg-[#e3ecf7] text-primary-700" },
+  on_hold: { label: "พักงาน", cls: "bg-[#fbe4cf] text-[#a9791b]" },
+  completed: { label: "เสร็จสิ้น", cls: "bg-[#dcefe4] text-success" },
+  warranty: { label: "รับประกัน", cls: "bg-[#e3ecf7] text-primary-700" },
+  closed: { label: "ปิดงาน", cls: "bg-[#ece9e2] text-neutral" },
+};
 
 function StatCard({
   label,
   value,
-  accent,
+  sub,
+  tone = "navy",
 }: {
   label: string;
-  value: string | number;
-  accent?: boolean;
+  value: string;
+  sub?: string;
+  tone?: "navy" | "green" | "orange";
 }) {
+  const valueColor =
+    tone === "green"
+      ? "text-success"
+      : tone === "orange"
+        ? "text-accent-600"
+        : "text-text-primary";
   return (
-    <div
-      className={`rounded-lg border p-4 ${
-        accent
-          ? "border-primary-600 bg-primary-50"
-          : "border-border bg-surface"
-      }`}
-    >
-      <div className="text-caption font-medium uppercase tracking-wide text-text-secondary">
+    <div className="rounded-lg border border-[#ece7db] bg-white p-5 shadow-1">
+      <div className="text-body-sm font-medium text-text-secondary">
         {label}
       </div>
-      <div
-        className={`mt-2 text-h2 font-bold tabular-nums ${
-          accent ? "text-primary-700" : "text-text-primary"
-        }`}
-      >
+      <div className={`mt-2 text-h1 font-bold tabular-nums ${valueColor}`}>
         {value}
       </div>
+      {sub && (
+        <div className="mt-1 text-caption text-text-secondary">{sub}</div>
+      )}
     </div>
   );
 }
 
-function num(d: any): number {
-  if (!d) return 0;
-  if (typeof d === "number") return d;
-  if (typeof d === "string") return parseFloat(d);
-  if (d.toNumber) return d.toNumber();
-  return 0;
+function CreamProgress({ value }: { value: number }) {
+  const pct = Math.max(0, Math.min(100, Math.round(value)));
+  return (
+    <div className="h-2 w-40 overflow-hidden rounded-full bg-[#e7e1d5]">
+      <div
+        className="h-full rounded-full bg-primary-700"
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
 }
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  await requireUser();
 
-  // Fetch aggregated stats
-  const [
-    totalProjects,
-    activeProjects,
-    totalClients,
-    totalQuotations,
-    approvedQuotations,
-    totalContracts,
-    signedContracts,
-    totalBudget,
-  ] = await Promise.all([
-    prisma.project.count({ where: { deletedAt: null } }),
-    prisma.project.count({
-      where: { deletedAt: null, status: "active" },
-    }),
-    prisma.client.count({ where: { deletedAt: null } }),
-    prisma.quotation.count({ where: { deletedAt: null } }),
-    prisma.quotation.count({
-      where: { status: "approved", deletedAt: null },
-    }),
-    prisma.contract.count({ where: { deletedAt: null } }),
-    prisma.contract.count({
-      where: { status: "signed", deletedAt: null },
+  const now = new Date();
+  const todayStart = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate()
+  );
+  const in14 = new Date(todayStart.getTime() + 14 * 86_400_000);
+
+  const [projects, projAgg, salesAgg, receivedAgg] = await Promise.all([
+    prisma.project.findMany({
+      where: { deletedAt: null },
+      orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        status: true,
+        progressPct: true,
+        contractValue: true,
+        endDate: true,
+        client: { select: { name: true } },
+      },
     }),
     prisma.project.aggregate({
       where: { deletedAt: null },
-      _sum: { budgetCost: true },
+      _sum: { contractValue: true, actualCost: true },
+    }),
+    prisma.contract.aggregate({
+      where: {
+        deletedAt: null,
+        status: { in: ["approved", "signed", "completed"] },
+      },
+      _sum: { value: true },
+    }),
+    prisma.payment.aggregate({
+      where: { direction: "incoming" },
+      _sum: { amount: true },
     }),
   ]);
 
-  const budget = totalBudget._sum.budgetCost ? num(totalBudget._sum.budgetCost) : 0;
+  const projectValue = num(projAgg._sum.contractValue);
+  const totalCost = num(projAgg._sum.actualCost);
+  // Sold value = signed/approved contracts; fall back to project pipeline value
+  // when no contracts exist yet so the KPI still reflects real data.
+  const contractSales = num(salesAgg._sum.value);
+  const totalSales = contractSales > 0 ? contractSales : projectValue;
+  const received = num(receivedAgg._sum.amount);
+  const outstanding = Math.max(0, totalSales - received);
+  const grossProfit = totalSales - totalCost;
+  const margin = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
 
-  // Recent projects
-  const recentProjects = await prisma.project.findMany({
-    where: { deletedAt: null },
-    orderBy: { updatedAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      code: true,
-      name: true,
-      status: true,
-      client: { select: { name: true } },
-    },
+  const projectCount = projects.length;
+  const ongoing = projects.filter(
+    (p) => p.status !== "completed" && p.status !== "closed"
+  );
+  const inProgress = projects.filter((p) => p.status === "active").length;
+  const deadlineProjects = projects.filter((p) => {
+    if (!p.endDate) return false;
+    if (p.status === "completed" || p.status === "closed") return false;
+    const d = new Date(p.endDate);
+    return d >= todayStart && d <= in14;
   });
-
-  // Recent quotations
-  const recentQuotations = await prisma.quotation.findMany({
-    where: { deletedAt: null },
-    orderBy: { updatedAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      quotationNo: true,
-      status: true,
-      total: true,
-      project: { select: { name: true } },
-    },
-  });
-
-  // Recent contracts
-  const recentContracts = await prisma.contract.findMany({
-    where: { deletedAt: null },
-    orderBy: { updatedAt: "desc" },
-    take: 5,
-    select: {
-      id: true,
-      contractNo: true,
-      status: true,
-      value: true,
-      project: { select: { name: true } },
-    },
-  });
-
-  const statusColor: Record<string, string> = {
-    active: "bg-success/10 text-success",
-    completed: "bg-neutral/10 text-neutral",
-    on_hold: "bg-warning/10 text-warning",
-    cancelled: "bg-danger/10 text-danger",
-    draft: "bg-neutral/10 text-neutral",
-    sent: "bg-info/10 text-info",
-    approved: "bg-success/10 text-success",
-    signed: "bg-success/10 text-success",
-    pending_approval: "bg-warning/10 text-warning",
-  };
 
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-h1 font-bold text-text-primary">
-          Welcome back, {user.fullName || user.email}
-        </h1>
-        <p className="mt-1 text-body text-text-secondary">
-          {new Date().toLocaleDateString("en-IN", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </p>
-      </div>
-
-      {/* Key metrics grid */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total projects" value={totalProjects} />
-        <StatCard label="Active projects" value={activeProjects} accent />
-        <StatCard label="Total clients" value={totalClients} />
-        <StatCard label="Total budget" value={formatMoney(budget, true)} />
-      </div>
-
-      {/* Commercial overview */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Quotations" value={totalQuotations} />
-        <StatCard label="Approved" value={approvedQuotations} accent />
-        <StatCard label="Pending" value={totalQuotations - approvedQuotations} />
-      </div>
-
-      {/* Contracts overview */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Total contracts" value={totalContracts} />
-        <StatCard label="Signed" value={signedContracts} accent />
+    <div className="space-y-6">
+      {/* KPI grid */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="ยอดขายรวม" value={baht(totalSales)} />
         <StatCard
-          label="In progress"
-          value={totalContracts - signedContracts}
+          label="มูลค่าโปรเจคทั้งหมด"
+          value={baht(projectValue)}
+          sub={`${projectCount} โปรเจค`}
+        />
+        <StatCard
+          label="รายรับที่รับแล้ว"
+          value={baht(received)}
+          tone="green"
+        />
+        <StatCard label="ยอดค้างรับ" value={baht(outstanding)} />
+
+        <StatCard label="ต้นทุนรวม" value={baht(totalCost)} />
+        <StatCard
+          label="กำไรขั้นต้น"
+          value={baht(grossProfit)}
+          sub={`${Math.round(margin)}% margin`}
+        />
+        <StatCard label="กำลังดำเนินการ" value={`${inProgress} โปรเจค`} />
+        <StatCard
+          label="ใกล้ Deadline (14 วัน)"
+          value={`${deadlineProjects.length} โปรเจค`}
+          tone="orange"
         />
       </div>
 
-      {/* Recent activity */}
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        {/* Recent projects */}
-        <section className="rounded-lg border border-border bg-surface p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-h3 font-semibold text-text-primary">
-              Recent projects
-            </h2>
-            <Link
-              href="/projects"
-              className="text-caption font-medium text-primary-600 hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          {recentProjects.length === 0 ? (
-            <p className="text-body-sm text-text-secondary">No projects yet</p>
+      {/* Ongoing + deadline sections */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Ongoing projects */}
+        <section className="rounded-lg border border-[#ece7db] bg-white p-6 shadow-1">
+          <h2 className="mb-4 text-h3 font-semibold text-text-primary">
+            โปรเจคที่กำลังดำเนินการ
+          </h2>
+          {ongoing.length === 0 ? (
+            <p className="text-body-sm text-text-secondary">
+              ยังไม่มีโปรเจคที่กำลังดำเนินการ
+            </p>
           ) : (
-            <ul className="space-y-3">
-              {recentProjects.map((p) => (
-                <li key={p.id}>
-                  <Link
-                    href={`/projects/${p.id}`}
-                    className="flex items-start justify-between gap-2 hover:underline"
+            <ul className="divide-y divide-[#f0ece2]">
+              {ongoing.slice(0, 6).map((p) => {
+                const st = STATUS_TH[p.status] ?? {
+                  label: p.status,
+                  cls: "bg-[#ece9e2] text-neutral",
+                };
+                return (
+                  <li
+                    key={p.id}
+                    className="flex items-center justify-between gap-4 py-3"
                   >
                     <div className="min-w-0">
-                      <div className="font-medium text-text-primary">
+                      <Link
+                        href={`/projects/${p.id}`}
+                        className="block truncate font-medium text-text-primary hover:underline"
+                      >
                         {p.name}
-                      </div>
-                      <div className="text-caption text-text-secondary">
+                      </Link>
+                      <div className="truncate text-caption text-text-secondary">
                         {p.client.name}
                       </div>
                     </div>
-                    <span
-                      className={`shrink-0 rounded-sm px-2 py-1 text-caption font-medium capitalize ${
-                        statusColor[p.status] || "bg-neutral/10"
-                      }`}
-                    >
-                      {p.status}
-                    </span>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <CreamProgress value={num(p.progressPct)} />
+                      <span
+                        className={`rounded-full px-2.5 py-1 text-caption font-medium ${st.cls}`}
+                      >
+                        {st.label}
+                      </span>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+
+        {/* Upcoming deadlines */}
+        <section className="rounded-lg border border-[#ece7db] bg-white p-6 shadow-1">
+          <h2 className="mb-4 text-h3 font-semibold text-text-primary">
+            ใกล้ถึง Deadline
+          </h2>
+          {deadlineProjects.length === 0 ? (
+            <p className="text-body-sm text-text-secondary">
+              ไม่มีโปรเจคที่ใกล้ถึงกำหนดส่งใน 14 วัน
+            </p>
+          ) : (
+            <ul className="divide-y divide-[#f0ece2]">
+              {deadlineProjects.map((p) => (
+                <li key={p.id} className="py-3">
+                  <Link
+                    href={`/projects/${p.id}`}
+                    className="block font-medium text-text-primary hover:underline"
+                  >
+                    {p.name}
                   </Link>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* Recent quotations */}
-        <section className="rounded-lg border border-border bg-surface p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-h3 font-semibold text-text-primary">
-              Recent quotations
-            </h2>
-            <Link
-              href="/projects"
-              className="text-caption font-medium text-primary-600 hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          {recentQuotations.length === 0 ? (
-            <p className="text-body-sm text-text-secondary">
-              No quotations yet
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {recentQuotations.map((q) => (
-                <li
-                  key={q.id}
-                  className="flex items-start justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium text-text-primary">
-                      {q.quotationNo}
-                    </div>
-                    <div className="text-caption text-text-secondary">
-                      {q.project.name}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-body-sm text-text-primary">
-                      {formatMoney(num(q.total), true)}
-                    </div>
-                    <span
-                      className={`text-caption font-medium capitalize ${
-                        statusColor[q.status] || "bg-neutral/10"
-                      }`}
-                    >
-                      {q.status}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-
-        {/* Recent contracts */}
-        <section className="rounded-lg border border-border bg-surface p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-h3 font-semibold text-text-primary">
-              Recent contracts
-            </h2>
-            <Link
-              href="/contracts"
-              className="text-caption font-medium text-primary-600 hover:underline"
-            >
-              View all
-            </Link>
-          </div>
-          {recentContracts.length === 0 ? (
-            <p className="text-body-sm text-text-secondary">
-              No contracts yet
-            </p>
-          ) : (
-            <ul className="space-y-3">
-              {recentContracts.map((c) => (
-                <li
-                  key={c.id}
-                  className="flex items-start justify-between gap-2"
-                >
-                  <div className="min-w-0">
-                    <div className="font-medium text-text-primary">
-                      {c.contractNo}
-                    </div>
-                    <div className="text-caption text-text-secondary">
-                      {c.project.name}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-mono text-body-sm text-text-primary">
-                      {formatMoney(num(c.value), true)}
-                    </div>
-                    <span
-                      className={`text-caption font-medium capitalize ${
-                        statusColor[c.status] || "bg-neutral/10"
-                      }`}
-                    >
-                      {c.status.replace("_", " ")}
-                    </span>
+                  <div className="text-caption text-accent-600">
+                    ส่งมอบ {p.endDate ? dateFmt.format(new Date(p.endDate)) : "—"}
                   </div>
                 </li>
               ))}
@@ -324,39 +258,6 @@ export default async function DashboardPage() {
           )}
         </section>
       </div>
-
-      {/* Quick actions */}
-      <section className="rounded-lg border border-border bg-surface p-6">
-        <h2 className="mb-4 text-h3 font-semibold text-text-primary">
-          Quick actions
-        </h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Link
-            href="/projects/new"
-            className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-center font-medium text-primary-700 hover:bg-primary-100"
-          >
-            New project
-          </Link>
-          <Link
-            href="/clients/new"
-            className="rounded-lg border border-primary-200 bg-primary-50 px-4 py-3 text-center font-medium text-primary-700 hover:bg-primary-100"
-          >
-            New client
-          </Link>
-          <Link
-            href="/projects"
-            className="rounded-lg border border-border bg-surface px-4 py-3 text-center font-medium text-text-primary hover:bg-primary-100"
-          >
-            Browse projects
-          </Link>
-          <Link
-            href="/contracts"
-            className="rounded-lg border border-border bg-surface px-4 py-3 text-center font-medium text-text-primary hover:bg-primary-100"
-          >
-            Browse contracts
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }
