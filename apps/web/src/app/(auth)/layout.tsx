@@ -12,9 +12,9 @@ export default function AuthLayout({
           <div className="mb-4">
             <Image
               src="/artiverges-next-logo.png"
-              alt="ARTIVERGES NEXT"
-              width={320}
-              height={80}
+              alt="ARTIVERGES NEXT - Creative Construction Turnkey"
+              width={400}
+              height={120}
               priority
               style={{ height: "auto", width: "auto" }}
             />
