@@ -1,13 +1,13 @@
-import { Badge, type BadgeTone } from "@/components/ui/Badge";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 
-const MAP: Record<string, { label: string; tone: BadgeTone }> = {
-  draft: { label: "Draft", tone: "neutral" },
-  sent: { label: "Sent", tone: "info" },
-  viewed: { label: "Viewed", tone: "info" },
-  approved: { label: "Approved", tone: "success" },
-  rejected: { label: "Rejected", tone: "danger" },
-  expired: { label: "Expired", tone: "warning" },
-  revised: { label: "Revised", tone: "neutral" },
+const MAP: Record<string, { label: string; tone: StatusTone }> = {
+  draft: { label: "ร่าง", tone: "gray" },
+  sent: { label: "ส่งแล้ว", tone: "navy" },
+  viewed: { label: "เปิดดูแล้ว", tone: "navy" },
+  approved: { label: "อนุมัติแล้ว", tone: "green" },
+  rejected: { label: "ปฏิเสธ", tone: "red" },
+  expired: { label: "หมดอายุ", tone: "amber" },
+  revised: { label: "แก้ไขแล้ว", tone: "gray" },
 };
 
 export function QuotationStatusBadge({
@@ -20,8 +20,8 @@ export function QuotationStatusBadge({
   // Surface an overdue (sent/viewed past expiry) quotation even before it is
   // formally marked expired.
   if (expired && (status === "sent" || status === "viewed")) {
-    return <Badge tone="warning">Expired</Badge>;
+    return <StatusBadge tone="amber">หมดอายุ</StatusBadge>;
   }
-  const e = MAP[status] ?? { label: status, tone: "neutral" as BadgeTone };
-  return <Badge tone={e.tone}>{e.label}</Badge>;
+  const e = MAP[status] ?? { label: status, tone: "gray" as StatusTone };
+  return <StatusBadge tone={e.tone}>{e.label}</StatusBadge>;
 }
