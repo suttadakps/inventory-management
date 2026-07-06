@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/session";
 import { canViewClients } from "@/lib/clients/permissions";
-import { AppShell } from "@/components/layout/AppShell";
+import { SidebarShell } from "@/components/layout/SidebarShell";
 
 export default async function ClientsLayout({
   children,
@@ -13,10 +13,8 @@ export default async function ClientsLayout({
   if (!canViewClients(user.role)) redirect("/dashboard");
 
   return (
-    <AppShell
-      user={{ email: user.email, fullName: user.fullName, role: user.role }}
-    >
+    <SidebarShell title="ลูกค้า" subtitle="จัดการข้อมูลลูกค้าทั้งหมด">
       {children}
-    </AppShell>
+    </SidebarShell>
   );
 }
