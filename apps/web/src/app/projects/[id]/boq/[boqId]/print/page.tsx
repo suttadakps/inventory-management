@@ -2,119 +2,170 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { requireUser } from "@/lib/auth/session";
-import { getBoqTree } from "@/lib/boq/repository";
-import { computeItem } from "@/lib/boq/calc";
-import { formatMoney, formatPct } from "@/lib/format";
+import { getBoqFlat } from "@/lib/boq/repository";
+import { formatBaht } from "@/lib/format";
 import { PrintButton } from "@/components/boq/PrintButton";
 
 export const metadata: Metadata = { title: "BOQ — Print · ARTIVERGES NEXT" };
 
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+
+const SCHEDULE = [
+  { label: "งวดที่ 1", pct: 30 },
+  { label: "งวดที่ 2", pct: 40 },
+  { label: "งวดที่ 3", pct: 20 },
+  { label: "งวดที่ 4", pct: 10 },
+];
+
 export default async function BoqPrintPage({
   params,
 }: {
-  params: Promise<{ boqId: string }>;
+  params: Promise<{ id: string; boqId: string }>;
 }) {
   const user = await requireUser();
   const { boqId } = await params;
 
-  const tree = await getBoqTree(user, boqId);
-  if (!tree) notFound();
+  const doc = await getBoqFlat(user, boqId);
+  if (!doc) notFound();
 
-  const t = tree.totals;
+  const today = new Date().toLocaleDateString("en-GB");
 
   return (
-    <div className="mx-auto max-w-4xl bg-surface p-2 text-text-primary">
-      <div className="mb-4 flex items-start justify-between">
+    <div className="mx-auto max-w-3xl bg-white p-6 text-text-primary print:p-0">
+      <div className="mb-5 flex items-start justify-between">
         <div>
-          <h1 className="text-h1 font-bold">ARTIVERGES NEXT — Bill of Quantities</h1>
-          <p className="text-body-sm text-text-secondary">
-            {tree.project.name} ({tree.project.code}) · {tree.project.clientName}
-          </p>
-          <p className="text-body-sm text-text-secondary">
-            {tree.title ?? `BOQ v${tree.version}`} · v{tree.version} ·{" "}
-            {tree.status}
+          <div className="text-h2 font-bold">
+            <span className="text-primary-700">ARTIVERGES</span>{" "}
+            <span className="text-accent-600">NEXT</span>
+          </div>
+          <p className="text-caption uppercase tracking-wide text-text-secondary">
+            Contractor &amp; Interior Ops
           </p>
         </div>
         <PrintButton />
       </div>
 
-      <table className="mb-6 w-full border-collapse text-body-sm">
+      <h1 className="mb-3 text-h3 font-bold">
+        ใบเสนอราคา / Bill of Quantities
+      </h1>
+
+      {/* Header meta */}
+      <div className="mb-4 grid grid-cols-2 gap-x-8 gap-y-1 text-body-sm">
+        <div>
+          <span className="text-text-secondary">Project: </span>
+          {doc.title || doc.project.name}
+        </div>
+        <div>
+          <span className="text-text-secondary">Date: </span>
+          {today}
+        </div>
+        <div>
+          <span className="text-text-secondary">Site: </span>
+          {doc.project.name}
+        </div>
+        <div>
+          <span className="text-text-secondary">Client: </span>
+          {doc.project.clientName}
+        </div>
+      </div>
+
+      {/* Line items */}
+      <table className="w-full border-collapse text-body-sm">
+        <thead>
+          <tr className="border-y border-neutral/40 text-left text-caption uppercase text-text-secondary">
+            <th className="py-2 pr-2">Section</th>
+            <th className="py-2 pr-2">No.</th>
+            <th className="py-2 pr-2">Description</th>
+            <th className="py-2 pr-2 text-right">Qty</th>
+            <th className="py-2 pr-2">Unit</th>
+            <th className="py-2 pr-2 text-right">Unit Price</th>
+            <th className="py-2 text-right">Amount</th>
+          </tr>
+        </thead>
         <tbody>
-          <tr>
-            <SumCell label="Material" value={formatMoney(t.materialTotal)} />
-            <SumCell label="Labor" value={formatMoney(t.laborTotal)} />
-            <SumCell label="Equipment" value={formatMoney(t.equipmentTotal)} />
-          </tr>
-          <tr>
-            <SumCell label="Cost Total" value={formatMoney(t.costTotal)} />
-            <SumCell label="Selling Total" value={formatMoney(t.sellingTotal)} />
-            <SumCell
-              label="Gross Profit / Margin"
-              value={`${formatMoney(t.grossProfit)} · ${formatPct(t.marginPct)}`}
-            />
-          </tr>
+          {doc.lines.map((l, idx) => (
+            <tr key={l.id} className="border-b border-neutral/15 align-top">
+              <td className="py-1.5 pr-2">{l.sectionLabel || "—"}</td>
+              <td className="py-1.5 pr-2">{idx + 1}</td>
+              <td className="py-1.5 pr-2">
+                {l.description || "—"}
+                {l.size ? (
+                  <span className="text-text-secondary"> ({l.size})</span>
+                ) : null}
+              </td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">
+                {l.quantity}
+              </td>
+              <td className="py-1.5 pr-2">{l.unit || "—"}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">
+                {formatBaht(l.unitPrice, true)}
+              </td>
+              <td className="py-1.5 text-right tabular-nums">
+                {formatBaht(round2(l.quantity * l.unitPrice), true)}
+              </td>
+            </tr>
+          ))}
         </tbody>
       </table>
 
-      {tree.sections.map((section) => (
-        <div key={section.id} className="mb-6">
-          <h2 className="mb-1 border-b border-text-primary pb-1 text-h3 font-bold">
-            {section.name}
-          </h2>
-          {section.categories.map((category) => (
-            <div key={category.id} className="mb-3">
-              <h3 className="mt-2 text-body font-semibold">{category.name}</h3>
-              <table className="w-full border-collapse text-caption">
-                <thead>
-                  <tr className="border-b border-border text-left">
-                    <th className="py-1 pr-2">Code</th>
-                    <th className="py-1 pr-2">Description</th>
-                    <th className="py-1 pr-2">Unit</th>
-                    <th className="py-1 pr-2 text-right">Qty</th>
-                    <th className="py-1 pr-2 text-right">Unit cost</th>
-                    <th className="py-1 pr-2 text-right">Line cost</th>
-                    <th className="py-1 pr-2 text-right">Line sell</th>
-                    <th className="py-1 pr-2 text-right">Margin</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {category.items.map((item) => {
-                    const c = computeItem(item);
-                    return (
-                      <tr key={item.id} className="border-b border-border">
-                        <td className="py-1 pr-2 font-mono">{item.itemCode ?? ""}</td>
-                        <td className="py-1 pr-2">{item.description}</td>
-                        <td className="py-1 pr-2">{item.unit ?? ""}</td>
-                        <td className="py-1 pr-2 text-right font-mono">{item.quantity}</td>
-                        <td className="py-1 pr-2 text-right font-mono">{formatMoney(c.unitCost)}</td>
-                        <td className="py-1 pr-2 text-right font-mono">{formatMoney(c.lineCost)}</td>
-                        <td className="py-1 pr-2 text-right font-mono">{formatMoney(c.lineSelling)}</td>
-                        <td className="py-1 pr-2 text-right font-mono">{formatPct(c.marginPct)}</td>
-                      </tr>
-                    );
-                  })}
-                  {category.items.length === 0 && (
-                    <tr>
-                      <td colSpan={8} className="py-1 text-text-secondary">
-                        No items.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+      {/* Totals */}
+      <div className="mt-4 flex justify-end">
+        <div className="w-72 space-y-1 text-body-sm">
+          <div className="flex justify-between">
+            <span className="text-text-secondary">Subtotal</span>
+            <span className="tabular-nums">{formatBaht(doc.subtotal, true)}</span>
+          </div>
+          {doc.vatEnabled && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">VAT 7%</span>
+              <span className="tabular-nums">{formatBaht(doc.vat, true)}</span>
             </div>
-          ))}
+          )}
+          {doc.whtEnabled && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">หัก ณ ที่จ่าย 3%</span>
+              <span className="tabular-nums">- {formatBaht(doc.wht, true)}</span>
+            </div>
+          )}
+          <div className="flex justify-between border-t border-neutral/40 pt-1 text-body font-bold">
+            <span>Grand Total</span>
+            <span className="tabular-nums">
+              {formatBaht(doc.grandTotal, true)}
+            </span>
+          </div>
         </div>
-      ))}
-    </div>
-  );
-}
+      </div>
 
-function SumCell({ label, value }: { label: string; value: string }) {
-  return (
-    <td className="border border-border p-2">
-      <div className="text-caption uppercase text-text-secondary">{label}</div>
-      <div className="font-mono font-semibold">{value}</div>
-    </td>
+      {/* Payment schedule */}
+      <div className="mt-6">
+        <div className="mb-1 text-body-sm font-semibold">งวดการชำระเงิน</div>
+        <table className="w-full max-w-sm text-body-sm">
+          <tbody>
+            {SCHEDULE.map((s) => (
+              <tr key={s.label}>
+                <td className="py-0.5 text-text-secondary">
+                  {s.label} ({s.pct}%)
+                </td>
+                <td className="py-0.5 text-right tabular-nums">
+                  {formatBaht(round2((doc.grandTotal * s.pct) / 100), true)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Signatures */}
+      <div className="mt-12 grid grid-cols-2 gap-8 text-center text-body-sm">
+        <div>
+          <div className="mb-1 border-t border-neutral/50 pt-2">ผู้เสนอราคา</div>
+          <div className="text-text-secondary">{doc.proposerName || ""}</div>
+        </div>
+        <div>
+          <div className="mb-1 border-t border-neutral/50 pt-2">ผู้ว่าจ้าง</div>
+          <div className="text-text-secondary">{doc.project.clientName}</div>
+        </div>
+      </div>
+    </div>
   );
 }

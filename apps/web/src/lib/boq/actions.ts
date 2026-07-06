@@ -344,3 +344,61 @@ export async function moveItemAction(
     return fail(e instanceof Error ? e.message : "Failed.");
   }
 }
+
+// ---- Flat single-price BOQ (document editor) --------------------------------
+
+export async function addBoqLineAction(boqId: string): Promise<BoqActionResult> {
+  try {
+    const user = await requireUser();
+    const ctx = await authorizeEdit(user, await repo.getBoqContext(boqId));
+    await repo.addFlatLine(boqId);
+    revalidateBoq(ctx);
+    return ok;
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed.");
+  }
+}
+
+export async function updateBoqLineAction(
+  lineId: string,
+  patch: repo.FlatLinePatch
+): Promise<BoqActionResult> {
+  try {
+    const user = await requireUser();
+    const ctx = await authorizeEdit(user, await repo.flatLineContext(lineId));
+    await repo.updateFlatLine(lineId, patch);
+    revalidateBoq(ctx);
+    return ok;
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed.");
+  }
+}
+
+export async function deleteBoqLineAction(
+  lineId: string
+): Promise<BoqActionResult> {
+  try {
+    const user = await requireUser();
+    const ctx = await authorizeEdit(user, await repo.flatLineContext(lineId));
+    await repo.deleteFlatLine(lineId);
+    revalidateBoq(ctx);
+    return ok;
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed.");
+  }
+}
+
+export async function updateBoqHeaderAction(
+  boqId: string,
+  patch: repo.BoqHeaderPatch
+): Promise<BoqActionResult> {
+  try {
+    const user = await requireUser();
+    const ctx = await authorizeEdit(user, await repo.getBoqContext(boqId));
+    await repo.updateBoqHeader(boqId, patch);
+    revalidateBoq(ctx);
+    return ok;
+  } catch (e) {
+    return fail(e instanceof Error ? e.message : "Failed.");
+  }
+}

@@ -8,7 +8,7 @@ import {
   canApproveBoq,
   canManageBoq,
 } from "@/lib/boq/permissions";
-import { getBoqTree, listSupplierOptions } from "@/lib/boq/repository";
+import { getBoqFlat } from "@/lib/boq/repository";
 import {
   submitBoqAction,
   approveBoqAction,
@@ -16,7 +16,7 @@ import {
   archiveBoqAction,
 } from "@/lib/boq/actions";
 import { BoqStatusBadge } from "@/components/boq/BoqStatusBadge";
-import { BoqEditor } from "@/components/boq/BoqEditor";
+import { BoqFlatEditor } from "@/components/boq/BoqFlatEditor";
 
 export const metadata: Metadata = { title: "BOQ · ARTIVERGES NEXT" };
 
@@ -33,16 +33,16 @@ function WorkflowButton({
 }) {
   const cls =
     variant === "primary"
-      ? "bg-primary-600 text-white hover:bg-primary-700"
+      ? "bg-primary-700 text-white hover:bg-primary-600"
       : variant === "danger"
-        ? "bg-danger text-white hover:brightness-95"
-        : "border border-border bg-surface text-text-primary hover:bg-primary-100";
+        ? "border border-danger text-danger hover:bg-[#f7e0dc]"
+        : "border border-[#e2ddd0] bg-white text-text-primary hover:bg-[#faf8f3]";
   return (
     <form action={action}>
       <input type="hidden" name="boqId" value={boqId} />
       <button
         type="submit"
-        className={`inline-flex h-9 items-center rounded-sm px-3 text-body-sm font-medium ${cls}`}
+        className={`inline-flex h-9 items-center rounded-md px-3 text-body-sm font-medium ${cls}`}
       >
         {label}
       </button>
@@ -58,102 +58,67 @@ export default async function BoqDetailPage({
   const user = await requireUser();
   const { id: projectId, boqId } = await params;
 
-  const [tree, suppliers] = await Promise.all([
-    getBoqTree(user, boqId),
-    listSupplierOptions(),
-  ]);
-  if (!tree) notFound();
+  const doc = await getBoqFlat(user, boqId);
+  if (!doc) notFound();
 
-  const editable = isBoqEditable(user.role, tree.status);
+  const editable = isBoqEditable(user.role, doc.status);
   const canApprove = canApproveBoq(user.role);
   const canManage = canManageBoq(user.role);
 
-  // Structural signature — remounts the editor (fresh state) after structural
-  // changes, without disturbing in-progress inline field edits.
-  const signature = tree.sections
-    .map(
-      (s) =>
-        `${s.id}:${s.sortOrder}(${s.categories
-          .map(
-            (c) =>
-              `${c.id}:${c.sortOrder}[${c.items
-                .map((i) => `${i.id}:${i.sortOrder}`)
-                .join(",")}]`
-          )
-          .join(",")})`
-    )
-    .join("|");
+  // Remount the editor with fresh state only when the line set changes
+  // (add/remove), leaving inline field edits undisturbed.
+  const signature = `${doc.lines.length}:${doc.lines.map((l) => l.id).join(",")}`;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <Link
           href={`/projects/${projectId}/boq`}
           className="text-body-sm text-text-secondary hover:underline"
         >
-          ← Bills of Quantities
+          ← BOQ / ใบเสนอราคา
         </Link>
         <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-h1 font-bold text-text-primary">
-                {tree.title ?? `BOQ v${tree.version}`}
-              </h1>
-              <BoqStatusBadge status={tree.status} />
-              <span className="text-body-sm text-text-secondary">
-                v{tree.version}
-              </span>
-            </div>
-            <p className="mt-1 font-mono text-body-sm text-text-secondary">
-              {tree.project.code} · {tree.project.name}
-            </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <h2 className="text-h2 font-bold text-text-primary">
+              {doc.title || `BOQ v${doc.version}`}
+            </h2>
+            <BoqStatusBadge status={doc.status} />
+            <span className="text-body-sm text-text-secondary">
+              v{doc.version} · {doc.project.code} · {doc.project.clientName}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/projects/${projectId}/boq/${boqId}/export`}
-              className="inline-flex h-9 items-center rounded-sm border border-border bg-surface px-3 text-body-sm font-medium text-text-primary hover:bg-primary-100"
-              prefetch={false}
-            >
-              Export CSV
-            </Link>
-            <Link
-              href={`/projects/${projectId}/boq/${boqId}/print`}
-              target="_blank"
-              className="inline-flex h-9 items-center rounded-sm border border-border bg-surface px-3 text-body-sm font-medium text-text-primary hover:bg-primary-100"
-            >
-              Print / PDF
-            </Link>
-
             {editable && (
               <WorkflowButton
                 action={submitBoqAction}
                 boqId={boqId}
-                label="Submit"
+                label="ส่งอนุมัติ"
                 variant="primary"
               />
             )}
-            {canApprove && tree.status === "submitted" && (
+            {canApprove && doc.status === "submitted" && (
               <WorkflowButton
                 action={approveBoqAction}
                 boqId={boqId}
-                label="Approve"
+                label="อนุมัติ"
                 variant="primary"
               />
             )}
             {canApprove &&
-              (tree.status === "submitted" || tree.status === "approved") && (
+              (doc.status === "submitted" || doc.status === "approved") && (
                 <WorkflowButton
                   action={reopenBoqAction}
                   boqId={boqId}
-                  label="Reopen"
+                  label="เปิดแก้ไข"
                 />
               )}
-            {canManage && tree.status !== "archived" && (
+            {canManage && doc.status !== "archived" && (
               <WorkflowButton
                 action={archiveBoqAction}
                 boqId={boqId}
-                label="Archive"
+                label="เก็บถาวร"
                 variant="danger"
               />
             )}
@@ -161,11 +126,11 @@ export default async function BoqDetailPage({
         </div>
       </div>
 
-      <BoqEditor
+      <BoqFlatEditor
         key={signature}
-        tree={tree}
+        doc={doc}
         editable={editable}
-        suppliers={suppliers}
+        projectId={projectId}
       />
     </div>
   );

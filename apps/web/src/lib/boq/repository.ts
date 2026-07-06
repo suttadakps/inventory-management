@@ -92,7 +92,7 @@ const num = (d: Prisma.Decimal): number => d.toNumber();
 function itemToDto(i: ItemRow): BoqItemDto {
   return {
     id: i.id,
-    categoryId: i.categoryId,
+    categoryId: i.categoryId ?? "",
     itemCode: i.itemCode,
     description: i.description,
     unit: i.unit,
@@ -318,7 +318,7 @@ async function contextFromItem(itemId: string): Promise<BoqContext | null> {
       },
     },
   });
-  const b = i?.category.section.boq;
+  const b = i?.category?.section.boq;
   return b ? { boqId: b.id, status: b.status, projectId: b.projectId } : null;
 }
 
@@ -559,7 +559,7 @@ export async function deleteItem(id: string): Promise<void> {
 export async function duplicateItem(id: string): Promise<string> {
   const src = await prisma.boqItem.findUnique({ where: { id } });
   if (!src) throw new Error("Item not found.");
-  const sortOrder = await nextSortOrder(prisma, "item", src.categoryId);
+  const sortOrder = await nextSortOrder(prisma, "item", src.categoryId ?? "");
   const copy = await prisma.boqItem.create({
     data: {
       categoryId: src.categoryId,
@@ -635,3 +635,178 @@ async function reorder(
 export const moveSection = (id: string, dir: "up" | "down") => reorder("section", id, dir);
 export const moveCategory = (id: string, dir: "up" | "down") => reorder("category", id, dir);
 export const moveItem = (id: string, dir: "up" | "down") => reorder("item", id, dir);
+
+// ---- Flat single-price BOQ (quotation-style document) -----------------------
+// A simpler, document-style BOQ where each line has one Unit Price. Line items
+// are linked directly to the BOQ (boqId set, no category). Runs alongside the
+// hierarchical model without disturbing it.
+
+export type BoqFlatLine = {
+  id: string;
+  sectionLabel: string;
+  description: string;
+  size: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  total: number;
+};
+
+export type BoqFlatDoc = {
+  id: string;
+  title: string | null;
+  status: BoqStatus;
+  version: number;
+  proposerName: string | null;
+  vatEnabled: boolean;
+  whtEnabled: boolean;
+  project: { id: string; name: string; code: string; clientName: string };
+  lines: BoqFlatLine[];
+  subtotal: number;
+  vat: number;
+  wht: number;
+  grandTotal: number;
+};
+
+const VAT_RATE = 0.07;
+const WHT_RATE = 0.03;
+
+const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
+
+export function computeFlatTotals(
+  lines: { total: number }[],
+  vatEnabled: boolean,
+  whtEnabled: boolean
+): { subtotal: number; vat: number; wht: number; grandTotal: number } {
+  const subtotal = round2(lines.reduce((s, l) => s + l.total, 0));
+  const vat = vatEnabled ? round2(subtotal * VAT_RATE) : 0;
+  const wht = whtEnabled ? round2(subtotal * WHT_RATE) : 0;
+  const grandTotal = round2(subtotal + vat - wht);
+  return { subtotal, vat, wht, grandTotal };
+}
+
+export async function getBoqFlat(
+  user: CurrentUser,
+  boqId: string
+): Promise<BoqFlatDoc | null> {
+  const b = await prisma.boq.findUnique({
+    where: { id: boqId },
+    include: {
+      project: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          client: { select: { name: true } },
+        },
+      },
+      lineItems: { orderBy: { sortOrder: "asc" } },
+    },
+  });
+  if (!b) return null;
+
+  const scope = await loadProjectScope(b.projectId);
+  if (!scope || !canViewProject(user, scope)) return null;
+
+  const lines: BoqFlatLine[] = b.lineItems.map((i) => {
+    const quantity = i.quantity.toNumber();
+    const unitPrice = i.sellingPrice.toNumber();
+    return {
+      id: i.id,
+      sectionLabel: i.sectionLabel ?? "",
+      description: i.description ?? "",
+      size: i.size ?? "",
+      quantity,
+      unit: i.unit ?? "",
+      unitPrice,
+      total: round2(quantity * unitPrice),
+    };
+  });
+
+  return {
+    id: b.id,
+    title: b.title,
+    status: b.status,
+    version: b.version,
+    proposerName: b.proposerName,
+    vatEnabled: b.vatEnabled,
+    whtEnabled: b.whtEnabled,
+    project: {
+      id: b.project.id,
+      name: b.project.name,
+      code: b.project.code,
+      clientName: b.project.client.name,
+    },
+    lines,
+    ...computeFlatTotals(lines, b.vatEnabled, b.whtEnabled),
+  };
+}
+
+export async function addFlatLine(boqId: string): Promise<string> {
+  const agg = await prisma.boqItem.aggregate({
+    where: { boqId },
+    _max: { sortOrder: true },
+  });
+  const sortOrder = (agg._max.sortOrder ?? -1) + 1;
+  const created = await prisma.boqItem.create({
+    data: { boqId, description: "", sortOrder },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+export type FlatLinePatch = Partial<{
+  sectionLabel: string;
+  description: string;
+  size: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+}>;
+
+export async function updateFlatLine(
+  id: string,
+  patch: FlatLinePatch
+): Promise<void> {
+  const data: Prisma.BoqItemUpdateInput = {};
+  if (patch.sectionLabel !== undefined) data.sectionLabel = patch.sectionLabel;
+  if (patch.description !== undefined) data.description = patch.description;
+  if (patch.size !== undefined) data.size = patch.size;
+  if (patch.unit !== undefined) data.unit = patch.unit;
+  if (patch.quantity !== undefined) data.quantity = patch.quantity;
+  if (patch.unitPrice !== undefined) data.sellingPrice = patch.unitPrice;
+  await prisma.boqItem.update({ where: { id }, data });
+}
+
+export async function deleteFlatLine(id: string): Promise<void> {
+  await prisma.boqItem.delete({ where: { id } });
+}
+
+export async function flatLineContext(id: string): Promise<BoqContext | null> {
+  const i = await prisma.boqItem.findUnique({
+    where: { id },
+    select: { boq: { select: { id: true, status: true, projectId: true } } },
+  });
+  return i?.boq
+    ? { boqId: i.boq.id, status: i.boq.status, projectId: i.boq.projectId }
+    : null;
+}
+
+export type BoqHeaderPatch = Partial<{
+  title: string;
+  proposerName: string;
+  vatEnabled: boolean;
+  whtEnabled: boolean;
+}>;
+
+export async function updateBoqHeader(
+  boqId: string,
+  patch: BoqHeaderPatch
+): Promise<void> {
+  const data: Prisma.BoqUpdateInput = {};
+  if (patch.title !== undefined) data.title = patch.title;
+  if (patch.proposerName !== undefined) data.proposerName = patch.proposerName;
+  if (patch.vatEnabled !== undefined) data.vatEnabled = patch.vatEnabled;
+  if (patch.whtEnabled !== undefined) data.whtEnabled = patch.whtEnabled;
+  await prisma.boq.update({ where: { id: boqId }, data });
+}

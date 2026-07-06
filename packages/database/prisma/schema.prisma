@@ -310,6 +310,9 @@ model Boq {
   status       BoqStatus @default(draft)
   title        String?
   notes        String?
+  proposerName String?   @map("proposer_name")
+  vatEnabled   Boolean   @default(true) @map("vat_enabled")
+  whtEnabled   Boolean   @default(true) @map("wht_enabled")
   totalCost    Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
   submittedAt  DateTime? @map("submitted_at") @db.Timestamptz(6)
   approvedAt   DateTime? @map("approved_at") @db.Timestamptz(6)
@@ -322,6 +325,7 @@ model Boq {
 
   project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sections   BoqSection[]
+  lineItems  BoqItem[]    @relation("BoqLineItems")
   quotations Quotation[]
 
   @@unique([projectId, version])
@@ -362,7 +366,10 @@ model BoqCategory {
 
 model BoqItem {
   id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  categoryId    String   @map("category_id") @db.Uuid
+  categoryId    String?  @map("category_id") @db.Uuid
+  boqId         String?  @map("boq_id") @db.Uuid
+  sectionLabel  String?  @map("section_label")
+  size          String?
   materialId    String?  @map("material_id") @db.Uuid
   supplierId    String?  @map("supplier_id") @db.Uuid
   itemCode      String?  @map("item_code")
@@ -379,11 +386,13 @@ model BoqItem {
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  category BoqCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  material Material?   @relation(fields: [materialId], references: [id], onDelete: SetNull)
-  supplier Supplier?   @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  category BoqCategory? @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  boq      Boq?         @relation("BoqLineItems", fields: [boqId], references: [id], onDelete: Cascade)
+  material Material?    @relation(fields: [materialId], references: [id], onDelete: SetNull)
+  supplier Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
 
   @@index([categoryId, sortOrder])
+  @@index([boqId, sortOrder])
   @@index([materialId])
   @@index([supplierId])
   @@map("boq_items")
