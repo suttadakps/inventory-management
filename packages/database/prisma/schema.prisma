@@ -78,6 +78,8 @@ enum QuotationStatus {
   approved
   rejected
   revised
+  viewed
+  expired
 
   @@map("quotation_status")
 }
@@ -364,20 +366,33 @@ model Quotation {
   boqId       String?         @map("boq_id") @db.Uuid
   projectId   String          @map("project_id") @db.Uuid
   clientId    String          @map("client_id") @db.Uuid
-  version     Int             @default(1)
-  marginPct   Decimal         @default(0) @map("margin_pct") @db.Decimal(6, 2)
-  discount    Decimal         @default(0) @db.Decimal(14, 2)
-  taxPct      Decimal         @default(0) @map("tax_pct") @db.Decimal(6, 2)
-  subtotal    Decimal         @default(0) @db.Decimal(14, 2)
-  total       Decimal         @default(0) @db.Decimal(14, 2)
-  status      QuotationStatus @default(draft)
-  sentAt      DateTime?       @map("sent_at") @db.Timestamptz(6)
-  approvedAt  DateTime?       @map("approved_at") @db.Timestamptz(6)
-  createdById String?         @map("created_by") @db.Uuid
-  updatedById String?         @map("updated_by") @db.Uuid
-  createdAt   DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt   DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt   DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  version       Int             @default(1)
+  title         String?
+  marginPct     Decimal         @default(0) @map("margin_pct") @db.Decimal(6, 2)
+  discountType  String          @default("amount") @map("discount_type")
+  discountValue Decimal         @default(0) @map("discount_value") @db.Decimal(14, 2)
+  discount      Decimal         @default(0) @db.Decimal(14, 2)
+  taxPct        Decimal         @default(0) @map("tax_pct") @db.Decimal(6, 2)
+  taxAmount     Decimal         @default(0) @map("tax_amount") @db.Decimal(14, 2)
+  subtotal      Decimal         @default(0) @db.Decimal(14, 2)
+  total         Decimal         @default(0) @db.Decimal(14, 2)
+  status        QuotationStatus @default(draft)
+  issueDate     DateTime?       @map("issue_date") @db.Date
+  expiryDate    DateTime?       @map("expiry_date") @db.Date
+  paymentTerms  String?         @map("payment_terms")
+  warranty      String?
+  scope         String?
+  excludedItems String?         @map("excluded_items")
+  notes         String?
+  sentAt        DateTime?       @map("sent_at") @db.Timestamptz(6)
+  viewedAt      DateTime?       @map("viewed_at") @db.Timestamptz(6)
+  approvedAt    DateTime?       @map("approved_at") @db.Timestamptz(6)
+  rejectedAt    DateTime?       @map("rejected_at") @db.Timestamptz(6)
+  createdById   String?         @map("created_by") @db.Uuid
+  updatedById   String?         @map("updated_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt     DateTime?       @map("deleted_at") @db.Timestamptz(6)
 
   boq     Boq?            @relation(fields: [boqId], references: [id], onDelete: SetNull)
   project Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
