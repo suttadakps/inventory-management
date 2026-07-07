@@ -17,7 +17,7 @@ const NAV: Item[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "โปรเจค", href: "/projects" },
   { label: "BOQ / ใบเสนอราคา", href: "/boq" },
-  { label: "เบิกเงิน" },
+  { label: "เบิกเงิน", href: "/disbursements" },
   { label: "บันทึกต้นทุน" },
   { label: "สรุปค่าแรง" },
   { label: "พอร์ทัลลูกค้า", href: "/clients" },

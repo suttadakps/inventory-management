@@ -280,6 +280,7 @@ model Project {
   contracts          Contract[]
   statusHistory      ProjectStatusHistory[]
   notes              ProjectNote[]
+  disbursements      Disbursement[]
 
   @@index([clientId])
   @@index([managerId])
@@ -312,6 +313,37 @@ model ProjectNote {
 
   @@index([projectId, createdAt])
   @@map("project_notes")
+}
+
+enum DisbursementStatus {
+  pending
+  approved
+  paid
+  rejected
+
+  @@map("disbursement_status")
+}
+
+model Disbursement {
+  id            String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId     String?            @map("project_id") @db.Uuid
+  requesterName String             @map("requester_name")
+  requestedById String?            @map("requested_by") @db.Uuid
+  amount        Decimal            @db.Decimal(14, 2)
+  reason        String?
+  neededDate    DateTime?          @map("needed_date") @db.Date
+  status        DisbursementStatus @default(pending)
+  approvedById  String?            @map("approved_by") @db.Uuid
+  approvedAt    DateTime?          @map("approved_at") @db.Timestamptz(6)
+  paidAt        DateTime?          @map("paid_at") @db.Timestamptz(6)
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([requestedById])
+  @@map("disbursements")
 }
 
 model ProjectMember {
