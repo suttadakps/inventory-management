@@ -6,7 +6,14 @@ import Link from "next/link";
 import type { ProjectActionState } from "@/lib/projects/actions";
 import type { ProjectOption, UserOption } from "@/lib/projects/repository";
 import { PROJECT_STATUSES } from "@/lib/validation/project";
-import { STATUS_LABELS } from "./ProjectStatusBadge";
+const STATUS_TH: Record<string, string> = {
+  planning: "วางแผน",
+  active: "กำลังดำเนินการ",
+  on_hold: "พักงาน",
+  completed: "เสร็จสิ้น",
+  warranty: "รับประกัน",
+  closed: "ปิดงาน",
+};
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -23,6 +30,7 @@ export type ProjectFormValues = {
   status?: string;
   budget?: number | null;
   contractValue?: number | null;
+  actualCost?: number | null;
   commissionRate?: number | null;
   startDate?: string | null;
   endDate?: string | null;
@@ -75,7 +83,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
 
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
         <div className="space-y-1.5">
-          <Label htmlFor="code">Project code</Label>
+          <Label htmlFor="code">รหัสโปรเจค</Label>
           <Input
             id="code"
             // On edit the value is submitted via a hidden field above.
@@ -90,13 +98,13 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
           <FieldError message={fe.code} />
           {mode === "edit" && (
             <p className="text-caption text-text-secondary">
-              Project code cannot be changed.
+              รหัสโปรเจคเปลี่ยนไม่ได้
             </p>
           )}
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="name">Project name</Label>
+          <Label htmlFor="name">ชื่อโปรเจค</Label>
           <Input
             id="name"
             name="name"
@@ -109,7 +117,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="clientId">Client</Label>
+          <Label htmlFor="clientId">ลูกค้า</Label>
           <Select
             id="clientId"
             name="clientId"
@@ -118,7 +126,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
             invalid={Boolean(fe.clientId)}
           >
             <option value="" disabled>
-              {clients.length ? "Select a client…" : "No clients available"}
+              {clients.length ? "เลือกลูกค้า…" : "ยังไม่มีลูกค้า"}
             </option>
             {clients.map((c) => (
               <option key={c.id} value={c.id}>
@@ -130,7 +138,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="status">Status</Label>
+          <Label htmlFor="status">สถานะ</Label>
           <Select
             id="status"
             name="status"
@@ -139,7 +147,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
           >
             {PROJECT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {STATUS_LABELS[s]}
+                {STATUS_TH[s] ?? s}
               </option>
             ))}
           </Select>
@@ -147,7 +155,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5 sm:col-span-2">
-          <Label htmlFor="address">Site address</Label>
+          <Label htmlFor="address">สถานที่ก่อสร้าง</Label>
           <Textarea
             id="address"
             name="address"
@@ -175,7 +183,23 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="budget">งบต้นทุน (฿)</Label>
+          <Label htmlFor="actualCost">ต้นทุนจริง (฿)</Label>
+          <Input
+            id="actualCost"
+            name="actualCost"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            defaultValue={values?.actualCost ?? ""}
+            placeholder="0.00"
+            invalid={Boolean(fe.actualCost)}
+          />
+          <FieldError message={fe.actualCost} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="budget">งบประมาณ (฿)</Label>
           <Input
             id="budget"
             name="budget"
@@ -223,7 +247,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="startDate">Start date</Label>
+          <Label htmlFor="startDate">เริ่มงาน</Label>
           <Input
             id="startDate"
             name="startDate"
@@ -235,7 +259,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="endDate">End date</Label>
+          <Label htmlFor="endDate">ส่งมอบ</Label>
           <Input
             id="endDate"
             name="endDate"
@@ -247,14 +271,14 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="managerId">Project manager</Label>
+          <Label htmlFor="managerId">ผู้จัดการโปรเจค</Label>
           <Select
             id="managerId"
             name="managerId"
             defaultValue={values?.managerId ?? ""}
             invalid={Boolean(fe.managerId)}
           >
-            <option value="">— Unassigned —</option>
+            <option value="">— ยังไม่ระบุ —</option>
             {managers.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -265,14 +289,14 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="siteEngineerId">Site engineer</Label>
+          <Label htmlFor="siteEngineerId">วิศวกรหน้างาน</Label>
           <Select
             id="siteEngineerId"
             name="siteEngineerId"
             defaultValue={values?.siteEngineerId ?? ""}
             invalid={Boolean(fe.siteEngineerId)}
           >
-            <option value="">— Unassigned —</option>
+            <option value="">— ยังไม่ระบุ —</option>
             {engineers.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.name}
@@ -285,13 +309,13 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
 
       <div className="flex items-center gap-3 border-t border-border pt-5">
         <Button type="submit" loading={pending}>
-          {mode === "create" ? "Create project" : "Save changes"}
+          {mode === "create" ? "สร้างโปรเจค" : "บันทึก"}
         </Button>
         <Link
           href={mode === "edit" && values?.id ? `/projects/${values.id}` : "/projects"}
           className="text-body-sm text-text-secondary hover:text-text-primary hover:underline"
         >
-          Cancel
+          ยกเลิก
         </Link>
       </div>
     </form>

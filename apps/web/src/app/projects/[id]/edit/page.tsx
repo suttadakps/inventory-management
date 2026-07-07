@@ -47,12 +47,12 @@ export default async function EditProjectPage({
         >
           ← {project.name}
         </Link>
-        <h1 className="mt-1 text-h1 font-bold text-text-primary">
-          Edit project
-        </h1>
+        <h2 className="mt-1 text-h2 font-bold text-text-primary">
+          แก้ไขโปรเจค
+        </h2>
       </div>
 
-      <div className="rounded-md border border-border bg-surface p-6">
+      <div className="rounded-lg border border-[#ece7db] bg-white p-6 shadow-1">
         <ProjectForm
           mode="edit"
           action={updateProject}
@@ -67,6 +67,7 @@ export default async function EditProjectPage({
             status: project.status,
             budget: project.budget,
             contractValue: project.contractValue,
+            actualCost: project.actualCost,
             commissionRate: project.commissionRate,
             startDate: project.startDate,
             endDate: project.endDate,

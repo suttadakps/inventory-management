@@ -55,6 +55,7 @@ export type ProjectWriteInput = {
   status: ProjectStatus;
   budget?: number;
   contractValue?: number;
+  actualCost?: number;
   commissionRate: number;
   startDate?: Date;
   endDate?: Date;
@@ -268,6 +269,7 @@ function editableData(input: ProjectWriteInput, actorId: string) {
     address: input.address ?? null,
     budgetCost: input.budget ?? null,
     contractValue: input.contractValue ?? null,
+    actualCost: input.actualCost ?? 0,
     commissionRate: input.commissionRate,
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,

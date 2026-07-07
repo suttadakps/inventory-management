@@ -79,6 +79,7 @@ export const projectBaseSchema = z
     status: z.enum(PROJECT_STATUSES),
     budget: optionalMoney,
     contractValue: optionalMoney,
+    actualCost: optionalMoney,
     commissionRate,
     startDate: optionalDate,
     endDate: optionalDate,
