@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 import { cn } from "@/lib/utils/cn";
+import { useMobileSidebar } from "@/components/layout/MobileSidebarContext";
 
 type Item = { label: string; href?: string };
 
@@ -25,11 +27,17 @@ const NAV: Item[] = [
   { label: "พาร์ทเนอร์แนะนำงาน", href: "/referrals" },
 ];
 
-export function AppSidebar({ roleLabel }: { roleLabel: string }) {
-  const pathname = usePathname();
-
+function SidebarContent({
+  roleLabel,
+  pathname,
+  onNavigate,
+}: {
+  roleLabel: string;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r border-[#e7e1d5] bg-[#fbfaf6] lg:flex print:!hidden">
+    <>
       <div className="px-6 pb-6 pt-6">
         <Image
           src="/artiverges-next-logo.png"
@@ -63,6 +71,7 @@ export function AppSidebar({ roleLabel }: { roleLabel: string }) {
             <Link
               key={item.label}
               href={item.href}
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 rounded-md px-3 py-2 text-body-sm font-medium transition-colors",
                 active
@@ -88,6 +97,76 @@ export function AppSidebar({ roleLabel }: { roleLabel: string }) {
           {roleLabel}
         </div>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function AppSidebar({ roleLabel }: { roleLabel: string }) {
+  const pathname = usePathname();
+  const { open, setOpen } = useMobileSidebar();
+
+  // Close the mobile drawer whenever the route changes (covers link clicks,
+  // back/forward navigation, etc. — not just the explicit onNavigate below).
+  useEffect(() => {
+    setOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname]);
+
+  return (
+    <>
+      {/* Desktop: static sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-[#e7e1d5] bg-[#fbfaf6] lg:flex print:!hidden">
+        <SidebarContent roleLabel={roleLabel} pathname={pathname} />
+      </aside>
+
+      {/* Mobile/tablet: off-canvas drawer, toggled by the hamburger button in the top bar */}
+      <div
+        className={cn(
+          "fixed inset-0 z-50 lg:hidden",
+          open ? "pointer-events-auto" : "pointer-events-none"
+        )}
+        aria-hidden={!open}
+      >
+        <div
+          className={cn(
+            "absolute inset-0 bg-black/40 transition-opacity duration-200",
+            open ? "opacity-100" : "opacity-0"
+          )}
+          onClick={() => setOpen(false)}
+        />
+        <aside
+          className={cn(
+            "absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-[#fbfaf6] shadow-3 transition-transform duration-200",
+            open ? "translate-x-0" : "-translate-x-full"
+          )}
+        >
+          <div className="flex items-center justify-end px-4 pt-4">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              aria-label="ปิดเมนู"
+              className="flex h-8 w-8 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-white"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              >
+                <path d="M3 3l10 10M13 3L3 13" />
+              </svg>
+            </button>
+          </div>
+          <SidebarContent
+            roleLabel={roleLabel}
+            pathname={pathname}
+            onNavigate={() => setOpen(false)}
+          />
+        </aside>
+      </div>
+    </>
   );
 }
