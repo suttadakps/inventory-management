@@ -2,7 +2,9 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { Prisma } from "@artiverges/database";
+import { Prisma, type ProjectStatus } from "@artiverges/database";
+
+import { PROJECT_STATUSES } from "@/lib/validation/project";
 
 import { requireUser } from "@/lib/auth/session";
 import { projectBaseSchema, projectUpdateSchema } from "@/lib/validation/project";
@@ -35,6 +37,50 @@ function isUniqueCodeViolation(e: unknown): boolean {
     e.code === "P2002" &&
     (e.meta?.target as string[] | undefined)?.includes("code") === true
   );
+}
+
+export type InlineResult = { ok: true } | { ok: false; error: string };
+
+async function ensureCanEditProject(
+  user: Awaited<ReturnType<typeof requireUser>>,
+  projectId: string
+): Promise<boolean> {
+  const authz = await repo.getProjectAuthz(user.id, projectId);
+  return (
+    authz.exists &&
+    canEditProject(user.role, {
+      isManager: authz.isManager,
+      isAssignedEngineer: authz.isAssignedEngineer,
+    })
+  );
+}
+
+/** Inline update of a project's progress (%) from the detail page. */
+export async function updateProjectProgressAction(
+  projectId: string,
+  progress: number
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.setProjectProgress(projectId, progress, user.id);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/** Inline update of a project's status from the detail page. */
+export async function updateProjectStatusAction(
+  projectId: string,
+  status: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  if (!(PROJECT_STATUSES as readonly string[]).includes(status))
+    return { ok: false, error: "สถานะไม่ถูกต้อง" };
+  await repo.setProjectStatus(projectId, status as ProjectStatus, user.id);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
 }
 
 /** Quick-create a project with just a name; details are added later on edit. */

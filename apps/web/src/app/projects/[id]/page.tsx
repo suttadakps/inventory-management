@@ -7,40 +7,39 @@ import {
   canArchiveProject,
   canEditProject,
 } from "@/lib/projects/permissions";
-import { getProjectForUser } from "@/lib/projects/repository";
-import { ProjectStatusBadge } from "@/components/projects/ProjectStatusBadge";
-import { ProgressBar } from "@/components/ui/ProgressBar";
+import {
+  getProjectForUser,
+  sumProjectIncoming,
+} from "@/lib/projects/repository";
+import { ContentCard } from "@/components/ui/ContentCard";
+import { MetricCard } from "@/components/ui/MetricCard";
+import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { ProjectProgressControl } from "@/components/projects/ProjectProgressControl";
 import {
   ArchiveProjectButton,
   RestoreProjectButton,
 } from "@/components/projects/ArchiveProjectButtons";
+import { formatBaht } from "@/lib/format";
 
-export const metadata: Metadata = { title: "Project · ARTIVERGES NEXT" };
+export const metadata: Metadata = { title: "โปรเจค · ARTIVERGES NEXT" };
 
-function money(value: number | null): string {
-  if (value === null) return "—";
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(value);
-}
+const dateFmt = new Intl.DateTimeFormat("en-US", {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+});
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div>
-      <dt className="text-caption font-medium uppercase tracking-wide text-text-secondary">
-        {label}
-      </dt>
-      <dd className="mt-1 text-body text-text-primary">{children}</dd>
-    </div>
-  );
+const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
+  planning: { label: "วางแผน", tone: "tan" },
+  active: { label: "กำลังดำเนินการ", tone: "navy" },
+  on_hold: { label: "พักงาน", tone: "amber" },
+  completed: { label: "เสร็จสิ้น", tone: "green" },
+  warranty: { label: "รับประกัน", tone: "navy" },
+  closed: { label: "ปิดงาน", tone: "gray" },
+};
+
+function fmtDate(d: string | null): string {
+  return d ? dateFmt.format(new Date(d)) : "—";
 }
 
 export default async function ProjectDetailPage({
@@ -54,63 +53,66 @@ export default async function ProjectDetailPage({
   const project = await getProjectForUser(user, id);
   if (!project) notFound();
 
+  const received = await sumProjectIncoming(id);
+  const value = project.contractValue ?? 0;
+  const outstanding = Math.max(0, value - received);
+
   const isManager = project.managerId === user.id;
   const isAssignedEngineer = project.siteEngineerId === user.id;
   const canEdit = canEditProject(user.role, { isManager, isAssignedEngineer });
   const canArchive = canArchiveProject(user.role);
+  const st = STATUS_TH[project.status] ?? {
+    label: project.status,
+    tone: "gray" as StatusTone,
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <Link
-          href="/projects"
-          className="text-body-sm text-text-secondary hover:underline"
-        >
-          ← Projects
-        </Link>
-        <div className="mt-1 flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-5">
+      <Link
+        href="/projects"
+        className="text-body-sm text-text-secondary hover:underline"
+      >
+        ← กลับไปหน้ารายการโปรเจค
+      </Link>
+
+      {/* Header + metrics + progress */}
+      <ContentCard className="p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-h1 font-bold text-text-primary">
+              <h2 className="text-h2 font-bold text-text-primary">
                 {project.name}
-              </h1>
-              <ProjectStatusBadge status={project.status} />
+              </h2>
+              <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
               {project.archived && (
-                <span className="rounded-sm bg-neutral px-2 py-0.5 text-caption font-medium text-white">
-                  Archived
-                </span>
+                <StatusBadge tone="gray">เก็บถาวร</StatusBadge>
               )}
             </div>
-            <p className="mt-1 font-mono text-body-sm text-text-secondary">
-              {project.code} · {project.clientName}
+            <p className="mt-1 text-body-sm text-text-secondary">
+              {project.clientName}
+              {project.address ? ` · ${project.address}` : ""}
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Link
               href={`/projects/${project.id}/boq`}
-              className="inline-flex h-9 items-center rounded-sm bg-primary-600 px-3 text-body-sm font-medium text-white hover:bg-primary-700"
+              className="inline-flex h-9 items-center rounded-md bg-primary-700 px-3 text-body-sm font-medium text-white hover:bg-primary-600"
             >
-              Bills of Quantities
+              BOQ
             </Link>
             <Link
               href={`/projects/${project.id}/quotations`}
-              className="inline-flex h-9 items-center rounded-sm border border-primary-600 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
+              className="inline-flex h-9 items-center rounded-md border border-primary-700 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
             >
-              Quotations
-            </Link>
-            <Link
-              href="/contracts"
-              className="inline-flex h-9 items-center rounded-sm border border-primary-600 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
-            >
-              Contracts
+              ใบเสนอราคา
             </Link>
             {canEdit && !project.archived && (
               <Link
                 href={`/projects/${project.id}/edit`}
-                className="inline-flex h-9 items-center rounded-sm border border-border bg-surface px-3 text-body-sm font-medium text-text-primary hover:bg-primary-100"
+                className="inline-flex h-9 items-center rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm font-medium text-text-primary hover:bg-[#faf8f3]"
               >
-                Edit
+                แก้ไข
               </Link>
             )}
             {canArchive &&
@@ -121,67 +123,102 @@ export default async function ProjectDetailPage({
               ))}
           </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Overview */}
-        <section className="rounded-md border border-border bg-surface p-6 lg:col-span-2">
-          <h2 className="mb-4 text-h3 font-semibold text-text-primary">
-            Overview
-          </h2>
-          <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-            <Field label="Client">{project.clientName}</Field>
-            <Field label="Status">
-              <ProjectStatusBadge status={project.status} />
-            </Field>
-            <Field label="Project manager">
-              {project.managerName ?? "Unassigned"}
-            </Field>
-            <Field label="Site engineer">
-              {project.siteEngineerName ?? "Unassigned"}
-            </Field>
-            <Field label="Start date">{project.startDate ?? "—"}</Field>
-            <Field label="End date">{project.endDate ?? "—"}</Field>
-            <div className="sm:col-span-2">
-              <Field label="Site address">{project.address ?? "—"}</Field>
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <MetricCard label="มูลค่างาน" value={formatBaht(value, true)} />
+          <MetricCard
+            label="รับแล้ว"
+            value={formatBaht(received, true)}
+            tone="green"
+          />
+          <MetricCard
+            label="ค้างรับ"
+            value={formatBaht(outstanding, true)}
+            tone="orange"
+          />
+          <MetricCard label="เริ่มงาน" value={fmtDate(project.startDate)} />
+          <MetricCard label="ส่งมอบ" value={fmtDate(project.endDate)} />
+        </div>
+
+        <div className="mt-5 border-t border-[#f0ece2] pt-5">
+          <ProjectProgressControl
+            projectId={project.id}
+            progress={project.progress}
+            status={project.status}
+            editable={canEdit && !project.archived}
+          />
+        </div>
+      </ContentCard>
+
+      {/* Overview + finance */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ContentCard className="p-6">
+          <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+            รายละเอียด
+          </h3>
+          <dl className="grid grid-cols-2 gap-4 text-body-sm">
+            <div>
+              <dt className="text-caption text-text-secondary">รหัสโปรเจค</dt>
+              <dd className="font-mono text-text-primary">{project.code}</dd>
+            </div>
+            <div>
+              <dt className="text-caption text-text-secondary">ลูกค้า</dt>
+              <dd className="text-text-primary">{project.clientName}</dd>
+            </div>
+            <div>
+              <dt className="text-caption text-text-secondary">
+                ผู้จัดการโปรเจค
+              </dt>
+              <dd className="text-text-primary">
+                {project.managerName ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-caption text-text-secondary">วิศวกรหน้างาน</dt>
+              <dd className="text-text-primary">
+                {project.siteEngineerName ?? "—"}
+              </dd>
+            </div>
+            <div className="col-span-2">
+              <dt className="text-caption text-text-secondary">
+                สถานที่ก่อสร้าง
+              </dt>
+              <dd className="text-text-primary">{project.address ?? "—"}</dd>
             </div>
           </dl>
-        </section>
+        </ContentCard>
 
-        {/* Progress + budget */}
-        <section className="space-y-6">
-          <div className="rounded-md border border-border bg-surface p-6">
-            <h2 className="mb-3 text-h3 font-semibold text-text-primary">
-              Progress
-            </h2>
-            <div className="mb-2 text-h1 font-bold tabular-nums text-primary-700">
-              {Math.round(project.progress)}%
+        <ContentCard className="p-6">
+          <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+            การเงิน
+          </h3>
+          <dl className="space-y-3 text-body-sm">
+            <div className="flex items-center justify-between">
+              <dt className="text-text-secondary">มูลค่างาน</dt>
+              <dd className="tabular-nums text-text-primary">
+                {formatBaht(value, true)}
+              </dd>
             </div>
-            <ProgressBar value={project.progress} />
-          </div>
-
-          <div className="rounded-md border border-border bg-surface p-6">
-            <h2 className="mb-4 text-h3 font-semibold text-text-primary">
-              Budget
-            </h2>
-            <dl className="space-y-3">
-              <div className="flex items-center justify-between">
-                <dt className="text-body-sm text-text-secondary">Budget</dt>
-                <dd className="font-mono tabular-nums text-text-primary">
-                  {money(project.budget)}
-                </dd>
-              </div>
-              <div className="flex items-center justify-between">
-                <dt className="text-body-sm text-text-secondary">
-                  Actual cost
-                </dt>
-                <dd className="font-mono tabular-nums text-text-primary">
-                  {money(project.actualCost)}
-                </dd>
-              </div>
-            </dl>
-          </div>
-        </section>
+            <div className="flex items-center justify-between">
+              <dt className="text-text-secondary">รับแล้ว</dt>
+              <dd className="tabular-nums text-success">
+                {formatBaht(received, true)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between">
+              <dt className="text-text-secondary">ค้างรับ</dt>
+              <dd className="tabular-nums text-accent-600">
+                {formatBaht(outstanding, true)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between border-t border-[#f0ece2] pt-3">
+              <dt className="text-text-secondary">ต้นทุนจริง</dt>
+              <dd className="tabular-nums text-text-primary">
+                {formatBaht(project.actualCost, true)}
+              </dd>
+            </div>
+          </dl>
+        </ContentCard>
       </div>
     </div>
   );

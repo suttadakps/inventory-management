@@ -471,3 +471,36 @@ export async function createProjectQuick(
     return project.id;
   });
 }
+
+// ---- Project detail helpers (finance + inline progress/status) ---------------
+
+export async function sumProjectIncoming(projectId: string): Promise<number> {
+  const agg = await prisma.payment.aggregate({
+    where: { projectId, direction: "incoming" },
+    _sum: { amount: true },
+  });
+  return agg._sum.amount ? agg._sum.amount.toNumber() : 0;
+}
+
+export async function setProjectProgress(
+  projectId: string,
+  progress: number,
+  actorId: string
+): Promise<void> {
+  const p = Math.max(0, Math.min(100, Math.round(progress)));
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { progressPct: p, updatedById: actorId },
+  });
+}
+
+export async function setProjectStatus(
+  projectId: string,
+  status: ProjectStatus,
+  actorId: string
+): Promise<void> {
+  await prisma.project.update({
+    where: { id: projectId },
+    data: { status, updatedById: actorId },
+  });
+}
