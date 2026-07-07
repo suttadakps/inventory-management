@@ -659,6 +659,18 @@ export type BoqFlatLine = {
   total: number;
 };
 
+export type BoqMilestone = { label: string; percent: number };
+
+function parseMilestones(value: unknown): BoqMilestone[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((m) => ({
+      label: typeof m?.label === "string" ? m.label : "",
+      percent: Number(m?.percent) || 0,
+    }))
+    .filter((m) => m.label !== "" || m.percent !== 0);
+}
+
 export type BoqFlatDoc = {
   id: string;
   title: string | null;
@@ -667,6 +679,8 @@ export type BoqFlatDoc = {
   proposerName: string | null;
   vatEnabled: boolean;
   whtEnabled: boolean;
+  terms: string | null;
+  milestones: BoqMilestone[];
   project: { id: string; name: string; code: string; clientName: string } | null;
   lines: BoqFlatLine[];
   subtotal: number;
@@ -744,6 +758,8 @@ export async function getBoqFlat(
     proposerName: b.proposerName,
     vatEnabled: b.vatEnabled,
     whtEnabled: b.whtEnabled,
+    terms: b.notes,
+    milestones: parseMilestones(b.paymentSchedule),
     project: b.project
       ? {
           id: b.project.id,
@@ -823,6 +839,8 @@ export type BoqHeaderPatch = Partial<{
   proposerName: string;
   vatEnabled: boolean;
   whtEnabled: boolean;
+  terms: string;
+  milestones: BoqMilestone[];
 }>;
 
 export async function updateBoqHeader(
@@ -834,6 +852,10 @@ export async function updateBoqHeader(
   if (patch.proposerName !== undefined) data.proposerName = patch.proposerName;
   if (patch.vatEnabled !== undefined) data.vatEnabled = patch.vatEnabled;
   if (patch.whtEnabled !== undefined) data.whtEnabled = patch.whtEnabled;
+  if (patch.terms !== undefined) data.notes = patch.terms;
+  if (patch.milestones !== undefined) {
+    data.paymentSchedule = patch.milestones as Prisma.InputJsonValue;
+  }
   await prisma.boq.update({ where: { id: boqId }, data });
 }
 

@@ -4,7 +4,11 @@ import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
-import type { BoqFlatDoc, BoqFlatLine } from "@/lib/boq/repository";
+import type {
+  BoqFlatDoc,
+  BoqFlatLine,
+  BoqMilestone,
+} from "@/lib/boq/repository";
 import {
   addBoqLineAction,
   updateBoqLineAction,
@@ -12,6 +16,7 @@ import {
   updateBoqHeaderAction,
 } from "@/lib/boq/actions";
 import { formatBaht } from "@/lib/format";
+import { Textarea } from "@/components/ui/Textarea";
 
 const VAT_RATE = 0.07;
 const WHT_RATE = 0.03;
@@ -37,6 +42,8 @@ export function BoqFlatEditor({
   const [vat, setVat] = useState(doc.vatEnabled);
   const [wht, setWht] = useState(doc.whtEnabled);
   const [rows, setRows] = useState<BoqFlatLine[]>(doc.lines);
+  const [terms, setTerms] = useState(doc.terms ?? "");
+  const [milestones, setMilestones] = useState<BoqMilestone[]>(doc.milestones);
 
   const subtotal = round2(
     rows.reduce((s, r) => s + r.quantity * r.unitPrice, 0)
@@ -70,6 +77,44 @@ export function BoqFlatEditor({
       await deleteBoqLineAction(id);
       router.refresh();
     });
+  };
+
+  const milestonePct = milestones.reduce((s, m) => s + (m.percent || 0), 0);
+
+  const saveMilestones = (next: BoqMilestone[]) =>
+    startTransition(() => {
+      void updateBoqHeaderAction(doc.id, { milestones: next });
+    });
+
+  const setMilestone = (idx: number, patch: Partial<BoqMilestone>) =>
+    setMilestones((ms) =>
+      ms.map((m, i) => (i === idx ? { ...m, ...patch } : m))
+    );
+
+  const addMilestone = () => {
+    const next = [
+      ...milestones,
+      { label: `งวดที่ ${milestones.length + 1}`, percent: 0 },
+    ];
+    setMilestones(next);
+    saveMilestones(next);
+  };
+
+  const removeMilestone = (idx: number) => {
+    const next = milestones.filter((_, i) => i !== idx);
+    setMilestones(next);
+    saveMilestones(next);
+  };
+
+  const seedDefaultMilestones = () => {
+    const next: BoqMilestone[] = [
+      { label: "งวดที่ 1", percent: 30 },
+      { label: "งวดที่ 2", percent: 40 },
+      { label: "งวดที่ 3", percent: 20 },
+      { label: "งวดที่ 4", percent: 10 },
+    ];
+    setMilestones(next);
+    saveMilestones(next);
   };
 
   return (
@@ -225,9 +270,125 @@ export function BoqFlatEditor({
         </button>
       )}
 
-      {/* Summary + proposer */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:justify-end">
-        <div className="w-full max-w-sm rounded-lg border border-[#ece7db] bg-white p-5 shadow-1">
+      {/* Left: payment milestones + conditions · Right: totals */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <div className="space-y-4">
+          {/* Payment milestones (งวดงาน) */}
+          <div className="rounded-lg border border-[#ece7db] bg-white p-5 shadow-1">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-body font-semibold text-text-primary">
+                งวดการชำระเงิน
+              </h3>
+              <span
+                className={`text-caption tabular-nums ${
+                  milestonePct === 100
+                    ? "text-success"
+                    : milestones.length
+                      ? "text-accent-600"
+                      : "text-text-secondary"
+                }`}
+              >
+                รวม {milestonePct}%
+              </span>
+            </div>
+
+            {milestones.length === 0 ? (
+              <p className="text-caption text-text-secondary">
+                ยังไม่มีงวดงาน
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {milestones.map((m, idx) => (
+                  <div key={idx} className="flex items-center gap-2">
+                    <input
+                      value={m.label}
+                      disabled={!editable}
+                      onChange={(e) =>
+                        setMilestone(idx, { label: e.target.value })
+                      }
+                      onBlur={() => saveMilestones(milestones)}
+                      placeholder={`งวดที่ ${idx + 1}`}
+                      className="h-9 flex-1 rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-2.5 text-body-sm focus:border-primary-600 focus:bg-white focus:outline-none"
+                    />
+                    <div className="flex items-center gap-1">
+                      <input
+                        inputMode="decimal"
+                        value={m.percent}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          setMilestone(idx, {
+                            percent: Number(e.target.value) || 0,
+                          })
+                        }
+                        onBlur={() => saveMilestones(milestones)}
+                        className="h-9 w-16 rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-2 text-right text-body-sm tabular-nums focus:border-primary-600 focus:bg-white focus:outline-none"
+                      />
+                      <span className="text-caption text-text-secondary">%</span>
+                    </div>
+                    <span className="w-24 text-right text-body-sm tabular-nums text-text-primary">
+                      {formatBaht(
+                        round2((grandTotal * (m.percent || 0)) / 100),
+                        true
+                      )}
+                    </span>
+                    {editable && (
+                      <button
+                        type="button"
+                        onClick={() => removeMilestone(idx)}
+                        aria-label="ลบงวด"
+                        className="text-text-secondary hover:text-danger"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {editable && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={addMilestone}
+                  className="inline-flex h-9 items-center rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm font-medium text-text-primary hover:bg-[#faf8f3]"
+                >
+                  + เพิ่มงวด
+                </button>
+                {milestones.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={seedDefaultMilestones}
+                    className="inline-flex h-9 items-center rounded-md px-3 text-body-sm font-medium text-primary-700 hover:underline"
+                  >
+                    ใช้ค่าเริ่มต้น 30/40/20/10
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Additional conditions (เงื่อนไขเพิ่มเติม) */}
+          <div className="rounded-lg border border-[#ece7db] bg-white p-5 shadow-1">
+            <label
+              htmlFor="terms"
+              className="mb-2 block text-body font-semibold text-text-primary"
+            >
+              เงื่อนไขเพิ่มเติม
+            </label>
+            <Textarea
+              id="terms"
+              value={terms}
+              disabled={!editable}
+              onChange={(e) => setTerms(e.target.value)}
+              onBlur={() => saveHeader({ terms: terms.trim() })}
+              rows={4}
+              placeholder="เช่น ราคานี้ยืนราคา 30 วัน / รวมค่าขนส่ง / ไม่รวมงานรื้อถอน …"
+            />
+          </div>
+        </div>
+
+        <div className="w-full rounded-lg border border-[#ece7db] bg-white p-5 shadow-1 lg:max-w-sm lg:justify-self-end">
           <label className="flex items-center justify-between py-1.5 text-body-sm text-text-primary">
             คิด VAT 7%
             <input

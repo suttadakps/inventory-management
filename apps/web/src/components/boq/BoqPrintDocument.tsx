@@ -6,17 +6,18 @@ import { PrintButton } from "@/components/boq/PrintButton";
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
-const SCHEDULE = [
-  { label: "งวดที่ 1", pct: 30 },
-  { label: "งวดที่ 2", pct: 40 },
-  { label: "งวดที่ 3", pct: 20 },
-  { label: "งวดที่ 4", pct: 10 },
+const DEFAULT_SCHEDULE = [
+  { label: "งวดที่ 1", percent: 30 },
+  { label: "งวดที่ 2", percent: 40 },
+  { label: "งวดที่ 3", percent: 20 },
+  { label: "งวดที่ 4", percent: 10 },
 ];
 
 /** Printable BOQ / quotation document (works for project-bound or standalone). */
 export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
   const today = new Date().toLocaleDateString("en-GB");
   const projectName = doc.title || doc.project?.name || "—";
+  const schedule = doc.milestones.length > 0 ? doc.milestones : DEFAULT_SCHEDULE;
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-6 text-text-primary print:p-0">
@@ -127,19 +128,28 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
         <div className="mb-1 text-body-sm font-semibold">งวดการชำระเงิน</div>
         <table className="w-full max-w-sm text-body-sm">
           <tbody>
-            {SCHEDULE.map((s) => (
-              <tr key={s.label}>
+            {schedule.map((s, i) => (
+              <tr key={i}>
                 <td className="py-0.5 text-text-secondary">
-                  {s.label} ({s.pct}%)
+                  {s.label} ({s.percent}%)
                 </td>
                 <td className="py-0.5 text-right tabular-nums">
-                  {formatBaht(round2((doc.grandTotal * s.pct) / 100), true)}
+                  {formatBaht(round2((doc.grandTotal * s.percent) / 100), true)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+
+      {doc.terms && doc.terms.trim() !== "" && (
+        <div className="mt-6">
+          <div className="mb-1 text-body-sm font-semibold">เงื่อนไขเพิ่มเติม</div>
+          <p className="whitespace-pre-line text-body-sm text-text-secondary">
+            {doc.terms}
+          </p>
+        </div>
+      )}
 
       <div className="mt-12 grid grid-cols-2 gap-8 text-center text-body-sm">
         <div>
