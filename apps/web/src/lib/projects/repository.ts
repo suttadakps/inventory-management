@@ -419,3 +419,55 @@ export async function listAeCommission(user: CurrentUser): Promise<AeCommission>
     rows,
   };
 }
+
+// ---- Quick create (name only) ------------------------------------------------
+// Create a project with just a name; the code is auto-generated and a reusable
+// "unassigned client" placeholder is attached. The rest of the details are
+// filled in later on the project edit page.
+
+const UNASSIGNED_CLIENT = "ยังไม่ระบุลูกค้า";
+
+export async function createProjectQuick(
+  name: string,
+  actorId: string
+): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    let client = await tx.client.findFirst({
+      where: { name: UNASSIGNED_CLIENT, deletedAt: null },
+      select: { id: true },
+    });
+    if (!client) {
+      client = await tx.client.create({
+        data: { name: UNASSIGNED_CLIENT, createdById: actorId },
+        select: { id: true },
+      });
+    }
+
+    const year = new Date().getFullYear();
+    let seq =
+      (await tx.project.count({
+        where: { code: { startsWith: `PRJ-${year}-` } },
+      })) + 1;
+    let code = `PRJ-${year}-${String(seq).padStart(3, "0")}`;
+    // Guard against gaps / manually-entered codes.
+    while (await tx.project.findUnique({ where: { code }, select: { id: true } })) {
+      seq += 1;
+      code = `PRJ-${year}-${String(seq).padStart(3, "0")}`;
+    }
+
+    const project = await tx.project.create({
+      data: {
+        code,
+        name,
+        clientId: client.id,
+        status: "planning",
+        progressPct: 0,
+        commissionRate: 0,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+      select: { id: true },
+    });
+    return project.id;
+  });
+}

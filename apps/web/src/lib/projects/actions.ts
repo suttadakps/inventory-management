@@ -37,6 +37,20 @@ function isUniqueCodeViolation(e: unknown): boolean {
   );
 }
 
+/** Quick-create a project with just a name; details are added later on edit. */
+export async function createProjectQuick(formData: FormData): Promise<void> {
+  const user = await requireUser();
+  if (!canCreateProject(user.role)) {
+    throw new Error("You do not have permission to create projects.");
+  }
+  const name = String(formData.get("name") ?? "").trim();
+  if (name.length < 2) throw new Error("กรุณากรอกชื่อโปรเจคอย่างน้อย 2 ตัวอักษร");
+
+  const projectId = await repo.createProjectQuick(name, user.id);
+  revalidatePath("/projects");
+  redirect(`/projects/${projectId}/edit`);
+}
+
 /** Create a project. */
 export async function createProject(
   _prev: ProjectActionState,
