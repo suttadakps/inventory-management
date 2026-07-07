@@ -315,6 +315,9 @@ model Boq {
   vatEnabled   Boolean   @default(true) @map("vat_enabled")
   whtEnabled   Boolean   @default(true) @map("wht_enabled")
   paymentSchedule Json?  @map("payment_schedule")
+  site         String?
+  clientName   String?   @map("client_name")
+  docDate      DateTime? @map("doc_date") @db.Date
   totalCost    Decimal   @default(0) @map("total_cost") @db.Decimal(14, 2)
   submittedAt  DateTime? @map("submitted_at") @db.Timestamptz(6)
   approvedAt   DateTime? @map("approved_at") @db.Timestamptz(6)

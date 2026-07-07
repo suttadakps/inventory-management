@@ -681,6 +681,9 @@ export type BoqFlatDoc = {
   whtEnabled: boolean;
   terms: string | null;
   milestones: BoqMilestone[];
+  site: string | null;
+  clientName: string | null;
+  docDate: string | null;
   project: { id: string; name: string; code: string; clientName: string } | null;
   lines: BoqFlatLine[];
   subtotal: number;
@@ -760,6 +763,9 @@ export async function getBoqFlat(
     whtEnabled: b.whtEnabled,
     terms: b.notes,
     milestones: parseMilestones(b.paymentSchedule),
+    site: b.site,
+    clientName: b.clientName,
+    docDate: b.docDate ? b.docDate.toISOString().slice(0, 10) : null,
     project: b.project
       ? {
           id: b.project.id,
@@ -841,6 +847,9 @@ export type BoqHeaderPatch = Partial<{
   whtEnabled: boolean;
   terms: string;
   milestones: BoqMilestone[];
+  site: string;
+  clientName: string;
+  docDate: string | null;
 }>;
 
 export async function updateBoqHeader(
@@ -855,6 +864,11 @@ export async function updateBoqHeader(
   if (patch.terms !== undefined) data.notes = patch.terms;
   if (patch.milestones !== undefined) {
     data.paymentSchedule = patch.milestones as Prisma.InputJsonValue;
+  }
+  if (patch.site !== undefined) data.site = patch.site;
+  if (patch.clientName !== undefined) data.clientName = patch.clientName;
+  if (patch.docDate !== undefined) {
+    data.docDate = patch.docDate ? new Date(patch.docDate) : null;
   }
   await prisma.boq.update({ where: { id: boqId }, data });
 }

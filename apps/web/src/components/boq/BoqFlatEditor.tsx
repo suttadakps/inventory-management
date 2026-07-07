@@ -38,6 +38,9 @@ export function BoqFlatEditor({
   const [, startTransition] = useTransition();
 
   const [title, setTitle] = useState(doc.title ?? "");
+  const [site, setSite] = useState(doc.site ?? "");
+  const [clientName, setClientName] = useState(doc.clientName ?? "");
+  const [docDate, setDocDate] = useState(doc.docDate ?? "");
   const [proposer, setProposer] = useState(doc.proposerName ?? "");
   const [vat, setVat] = useState(doc.vatEnabled);
   const [wht, setWht] = useState(doc.whtEnabled);
@@ -125,16 +128,62 @@ export function BoqFlatEditor({
 
   return (
     <div className="space-y-5">
-      {/* Top bar: project name + export */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <input
-          value={title}
-          disabled={!editable}
-          onChange={(e) => setTitle(e.target.value)}
-          onBlur={() => saveHeader({ title: title.trim() })}
-          placeholder="ชื่อโปรเจค"
-          className="h-11 w-full max-w-md rounded-md border border-[#e2ddd0] bg-white px-3 text-body font-medium text-text-primary focus:border-primary-600 focus:outline-none"
-        />
+      {/* Top bar: document header (Project / Date / Site / Client) + export */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid w-full max-w-2xl grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="text-caption text-text-secondary">
+              Project / ชื่อโปรเจค
+            </span>
+            <input
+              value={title}
+              disabled={!editable}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => saveHeader({ title: title.trim() })}
+              placeholder="ชื่อโปรเจค"
+              className="h-10 w-full rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm font-medium text-text-primary focus:border-primary-600 focus:outline-none"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-caption text-text-secondary">Date / วันที่</span>
+            <input
+              type="date"
+              value={docDate}
+              disabled={!editable}
+              onChange={(e) => {
+                setDocDate(e.target.value);
+                saveHeader({ docDate: e.target.value || null });
+              }}
+              className="h-10 w-full rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-caption text-text-secondary">
+              Site / สถานที่
+            </span>
+            <input
+              value={site}
+              disabled={!editable}
+              onChange={(e) => setSite(e.target.value)}
+              onBlur={() => saveHeader({ site: site.trim() })}
+              placeholder="สถานที่ก่อสร้าง"
+              className="h-10 w-full rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+            />
+          </label>
+          <label className="space-y-1">
+            <span className="text-caption text-text-secondary">
+              Client / ลูกค้า
+            </span>
+            <input
+              value={clientName}
+              disabled={!editable}
+              onChange={(e) => setClientName(e.target.value)}
+              onBlur={() => saveHeader({ clientName: clientName.trim() })}
+              placeholder="ชื่อลูกค้า"
+              className="h-10 w-full rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+            />
+          </label>
+        </div>
         <Link
           href={printHref}
           target="_blank"

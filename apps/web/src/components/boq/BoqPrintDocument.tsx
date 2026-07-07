@@ -15,8 +15,12 @@ const DEFAULT_SCHEDULE = [
 
 /** Printable BOQ / quotation document (works for project-bound or standalone). */
 export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
-  const today = new Date().toLocaleDateString("en-GB");
   const projectName = doc.title || doc.project?.name || "—";
+  const dateStr = (doc.docDate ? new Date(doc.docDate) : new Date()).toLocaleDateString(
+    "en-GB"
+  );
+  const site = doc.site || doc.project?.name || "—";
+  const client = doc.clientName || doc.project?.clientName || "—";
   const schedule = doc.milestones.length > 0 ? doc.milestones : DEFAULT_SCHEDULE;
 
   return (
@@ -47,15 +51,15 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
         </div>
         <div>
           <span className="text-text-secondary">Date: </span>
-          {today}
+          {dateStr}
         </div>
         <div>
           <span className="text-text-secondary">Site: </span>
-          {doc.project?.name ?? "—"}
+          {site}
         </div>
         <div>
           <span className="text-text-secondary">Client: </span>
-          {doc.project?.clientName ?? "—"}
+          {client}
         </div>
       </div>
 
