@@ -16,7 +16,7 @@ import {
   archiveBoqAction,
 } from "@/lib/boq/actions";
 import { BoqStatusBadge } from "@/components/boq/BoqStatusBadge";
-import { BoqFlatEditor } from "@/components/boq/BoqFlatEditor";
+import { BoqFlatEditorLazy } from "@/components/boq/BoqFlatEditorLazy";
 
 export const metadata: Metadata = { title: "BOQ · ARTIVERGES NEXT" };
 
@@ -129,7 +129,7 @@ export default async function BoqDetailPage({
         </div>
       </div>
 
-      <BoqFlatEditor
+      <BoqFlatEditorLazy
         key={signature}
         doc={doc}
         editable={editable}

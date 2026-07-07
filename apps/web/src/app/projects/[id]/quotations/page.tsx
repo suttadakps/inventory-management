@@ -23,11 +23,14 @@ export default async function ProjectQuotationsPage({
   const user = await requireUser();
   const { id: projectId } = await params;
 
-  const data = await listQuotationsForProject(user, projectId);
-  if (!data) notFound();
-
+  // canManage depends only on user.role (known up front), so it can gate a
+  // parallel fetch instead of a second round-trip after the first resolves.
   const canManage = canManageQuotation(user.role);
-  const approvedBoqs = canManage ? await listApprovedBoqs(projectId) : [];
+  const [data, approvedBoqs] = await Promise.all([
+    listQuotationsForProject(user, projectId),
+    canManage ? listApprovedBoqs(projectId) : Promise.resolve([]),
+  ]);
+  if (!data) notFound();
 
   return (
     <div className="space-y-5">

@@ -903,10 +903,17 @@ export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
     ? { projectId: null }
     : { projectId: null, createdById: user.id };
 
+  // Push the status restriction into the query itself instead of fetching
+  // `take: 300` rows and filtering afterward — otherwise a role limited to
+  // e.g. only "approved" BOQs could see fewer than 300 rows even though more
+  // exist, and rows visible to that role beyond the 300th would never surface.
+  const visible = visibleStatusesFor(user.role);
+
   const boqs = await prisma.boq.findMany({
     where: {
       deletedAt: null,
       OR: [{ project: boqProjectScope(user) }, standalone],
+      ...(visible ? { status: { in: visible as BoqStatus[] } } : {}),
     },
     orderBy: { updatedAt: "desc" },
     include: {
@@ -923,10 +930,7 @@ export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
     take: 300,
   });
 
-  const visible = visibleStatusesFor(user.role);
-
   return boqs
-    .filter((b) => !visible || visible.includes(b.status))
     .map((b) => {
       const lines = b.lineItems.map((i) => ({
         total: round2(i.quantity.toNumber() * i.sellingPrice.toNumber()),

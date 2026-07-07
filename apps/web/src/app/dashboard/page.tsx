@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
-import { prisma } from "@/lib/db";
+import { getDashboardKpis, getDashboardLists } from "@/lib/dashboard/repository";
 
 export const metadata: Metadata = { title: "Dashboard · ARTIVERGES NEXT" };
 
@@ -19,16 +19,6 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 
 function baht(n: number): string {
   return baht0.format(Number.isFinite(n) ? n : 0);
-}
-
-function num(d: unknown): number {
-  if (!d) return 0;
-  if (typeof d === "number") return d;
-  if (typeof d === "string") return parseFloat(d);
-  if (typeof d === "object" && d !== null && "toNumber" in d) {
-    return (d as { toNumber: () => number }).toNumber();
-  }
-  return 0;
 }
 
 const STATUS_TH: Record<string, { label: string; cls: string }> = {
@@ -87,96 +77,40 @@ function CreamProgress({ value }: { value: number }) {
 export default async function DashboardPage() {
   await requireUser();
 
-  const now = new Date();
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  );
-  const in14 = new Date(todayStart.getTime() + 14 * 86_400_000);
-
-  const [projects, projAgg, salesAgg, receivedAgg] = await Promise.all([
-    prisma.project.findMany({
-      where: { deletedAt: null },
-      orderBy: { updatedAt: "desc" },
-      select: {
-        id: true,
-        name: true,
-        code: true,
-        status: true,
-        progressPct: true,
-        contractValue: true,
-        endDate: true,
-        client: { select: { name: true } },
-      },
-    }),
-    prisma.project.aggregate({
-      where: { deletedAt: null },
-      _sum: { contractValue: true, actualCost: true },
-    }),
-    prisma.contract.aggregate({
-      where: {
-        deletedAt: null,
-        status: { in: ["approved", "signed", "completed"] },
-      },
-      _sum: { value: true },
-    }),
-    prisma.payment.aggregate({
-      where: { direction: "incoming" },
-      _sum: { amount: true },
-    }),
+  // Independent reads — fetched in parallel. Each is itself a cached,
+  // DB-side-aggregated/bounded query (see lib/dashboard/repository.ts).
+  const [kpis, lists] = await Promise.all([
+    getDashboardKpis(),
+    getDashboardLists(),
   ]);
-
-  const projectValue = num(projAgg._sum.contractValue);
-  const totalCost = num(projAgg._sum.actualCost);
-  // Sold value = signed/approved contracts; fall back to project pipeline value
-  // when no contracts exist yet so the KPI still reflects real data.
-  const contractSales = num(salesAgg._sum.value);
-  const totalSales = contractSales > 0 ? contractSales : projectValue;
-  const received = num(receivedAgg._sum.amount);
-  const outstanding = Math.max(0, totalSales - received);
-  const grossProfit = totalSales - totalCost;
-  const margin = totalSales > 0 ? (grossProfit / totalSales) * 100 : 0;
-
-  const projectCount = projects.length;
-  const ongoing = projects.filter(
-    (p) => p.status !== "completed" && p.status !== "closed"
-  );
-  const inProgress = projects.filter((p) => p.status === "active").length;
-  const deadlineProjects = projects.filter((p) => {
-    if (!p.endDate) return false;
-    if (p.status === "completed" || p.status === "closed") return false;
-    const d = new Date(p.endDate);
-    return d >= todayStart && d <= in14;
-  });
 
   return (
     <div className="space-y-6">
       {/* KPI grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="ยอดขายรวม" value={baht(totalSales)} />
+        <StatCard label="ยอดขายรวม" value={baht(kpis.totalSales)} />
         <StatCard
           label="มูลค่าโปรเจคทั้งหมด"
-          value={baht(projectValue)}
-          sub={`${projectCount} โปรเจค`}
+          value={baht(kpis.projectValue)}
+          sub={`${kpis.projectCount} โปรเจค`}
         />
         <StatCard
           label="รายรับที่รับแล้ว"
-          value={baht(received)}
+          value={baht(kpis.received)}
           tone="green"
         />
-        <StatCard label="ยอดค้างรับ" value={baht(outstanding)} />
+        <StatCard label="ยอดค้างรับ" value={baht(kpis.outstanding)} />
 
-        <StatCard label="ต้นทุนรวม" value={baht(totalCost)} />
+        <StatCard label="ต้นทุนรวม" value={baht(kpis.totalCost)} />
         <StatCard
           label="กำไรขั้นต้น"
-          value={baht(grossProfit)}
-          sub={`${Math.round(margin)}% margin`}
+          value={baht(kpis.grossProfit)}
+          sub={`${Math.round(kpis.margin)}% margin`}
         />
-        <StatCard label="กำลังดำเนินการ" value={`${inProgress} โปรเจค`} />
+        <StatCard label="กำลังดำเนินการ" value={`${kpis.inProgress} โปรเจค`} />
         <StatCard
           label="ใกล้ Deadline (14 วัน)"
-          value={`${deadlineProjects.length} โปรเจค`}
+          value={`${kpis.deadlineCount} โปรเจค`}
           tone="orange"
         />
       </div>
@@ -188,13 +122,13 @@ export default async function DashboardPage() {
           <h2 className="mb-4 text-h3 font-semibold text-text-primary">
             โปรเจคที่กำลังดำเนินการ
           </h2>
-          {ongoing.length === 0 ? (
+          {lists.ongoing.length === 0 ? (
             <p className="text-body-sm text-text-secondary">
               ยังไม่มีโปรเจคที่กำลังดำเนินการ
             </p>
           ) : (
             <ul className="divide-y divide-[#f0ece2]">
-              {ongoing.slice(0, 6).map((p) => {
+              {lists.ongoing.map((p) => {
                 const st = STATUS_TH[p.status] ?? {
                   label: p.status,
                   cls: "bg-[#ece9e2] text-neutral",
@@ -212,11 +146,11 @@ export default async function DashboardPage() {
                         {p.name}
                       </Link>
                       <div className="truncate text-caption text-text-secondary">
-                        {p.client.name}
+                        {p.clientName}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-3">
-                      <CreamProgress value={num(p.progressPct)} />
+                      <CreamProgress value={p.progress} />
                       <span
                         className={`rounded-full px-2.5 py-1 text-caption font-medium ${st.cls}`}
                       >
@@ -235,13 +169,13 @@ export default async function DashboardPage() {
           <h2 className="mb-4 text-h3 font-semibold text-text-primary">
             ใกล้ถึง Deadline
           </h2>
-          {deadlineProjects.length === 0 ? (
+          {lists.deadlines.length === 0 ? (
             <p className="text-body-sm text-text-secondary">
               ไม่มีโปรเจคที่ใกล้ถึงกำหนดส่งใน 14 วัน
             </p>
           ) : (
             <ul className="divide-y divide-[#f0ece2]">
-              {deadlineProjects.map((p) => (
+              {lists.deadlines.map((p) => (
                 <li key={p.id} className="py-3">
                   <Link
                     href={`/projects/${p.id}`}

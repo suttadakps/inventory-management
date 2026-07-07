@@ -212,9 +212,16 @@ export async function getProjectAuthz(
   userId: string,
   id: string
 ): Promise<ProjectAuthz> {
+  // Only ids are needed for the authz checks below — narrower than
+  // `projectInclude` (which also pulls manager/member display names and the
+  // client's name, unused here).
   const p = await prisma.project.findUnique({
     where: { id },
-    include: projectInclude,
+    select: {
+      managerId: true,
+      members: { select: { userId: true } },
+      client: { select: { portalUserId: true } },
+    },
   });
   if (!p) {
     return {
@@ -385,6 +392,10 @@ export async function listAeCommission(user: CurrentUser): Promise<AeCommission>
   const projects = await prisma.project.findMany({
     where: { deletedAt: null, ...scopeWhere(user) },
     orderBy: { updatedAt: "desc" },
+    // Same bound used by every other project list in this repository
+    // (listProjects, listAllBoqs, ...) — keeps this scoped-role query from
+    // growing unbounded as the projects table grows.
+    take: 200,
     select: {
       id: true,
       name: true,

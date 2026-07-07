@@ -23,10 +23,14 @@ export default async function EditProjectPage({
   const user = await requireUser();
   const { id } = await params;
 
-  const project = await getProjectForUser(user, id);
+  // Independent reads — same underlying row, but neither result depends on
+  // the other, so fetch in parallel instead of two round-trips in series.
+  const [project, authz] = await Promise.all([
+    getProjectForUser(user, id),
+    getProjectAuthz(user.id, id),
+  ]);
   if (!project) notFound();
 
-  const authz = await getProjectAuthz(user.id, id);
   const allowed = canEditProject(user.role, {
     isManager: authz.isManager,
     isAssignedEngineer: authz.isAssignedEngineer,
