@@ -332,6 +332,35 @@ enum WageStatus {
   @@map("wage_status")
 }
 
+enum ReferralStatus {
+  new
+  contacted
+  in_progress
+  won
+  lost
+
+  @@map("referral_status")
+}
+
+model Referral {
+  id              String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  referrerName    String         @map("referrer_name")
+  referrerContact String?        @map("referrer_contact")
+  projectTitle    String         @map("project_title")
+  details         String?
+  prospectName    String?        @map("prospect_name")
+  budget          Decimal?       @db.Decimal(14, 2)
+  source          String         @default("website")
+  status          ReferralStatus @default(new)
+  adminNote       String?        @map("admin_note")
+  handledById     String?        @map("handled_by") @db.Uuid
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([status, createdAt])
+  @@map("referrals")
+}
+
 model WageEntry {
   id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   projectId   String?    @map("project_id") @db.Uuid

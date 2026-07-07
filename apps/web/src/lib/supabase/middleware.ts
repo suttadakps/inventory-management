@@ -18,7 +18,12 @@ const PUBLIC_PATHS = new Set<string>([
 const AUTHED_REDIRECT_AWAY = new Set<string>(["/login", "/forgot-password"]);
 
 function isPublicPath(pathname: string): boolean {
-  return PUBLIC_PATHS.has(pathname) || pathname.startsWith("/auth/");
+  return (
+    PUBLIC_PATHS.has(pathname) ||
+    pathname.startsWith("/auth/") ||
+    // Public referral intake for the company website (token-gated in the route).
+    pathname.startsWith("/api/referrals")
+  );
 }
 
 /**

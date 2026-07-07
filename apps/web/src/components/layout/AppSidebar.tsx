@@ -22,7 +22,7 @@ const NAV: Item[] = [
   { label: "สรุปค่าแรง", href: "/wages" },
   { label: "พอร์ทัลลูกค้า", href: "/portal" },
   { label: "โปรเจคของฉัน (AE)", href: "/my-projects" },
-  { label: "พาร์ทเนอร์แนะนำงาน" },
+  { label: "พาร์ทเนอร์แนะนำงาน", href: "/referrals" },
 ];
 
 export function AppSidebar({ roleLabel }: { roleLabel: string }) {
