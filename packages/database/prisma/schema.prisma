@@ -402,6 +402,7 @@ model Disbursement {
 
   @@index([status, createdAt])
   @@index([requestedById])
+  @@index([projectId])
   @@map("disbursements")
 }
 
@@ -566,6 +567,7 @@ model Quotation {
   @@index([projectId])
   @@index([clientId])
   @@index([status])
+  @@index([boqId])
   @@map("quotations")
 }
 
@@ -974,6 +976,7 @@ model Document {
 
   @@index([projectId])
   @@index([visibility])
+  @@index([uploadedById])
   @@map("documents")
 }
 
@@ -995,6 +998,7 @@ model Photo {
 
   @@index([projectId])
   @@index([taskId])
+  @@index([uploadedById])
   @@map("photos")
 }
 
