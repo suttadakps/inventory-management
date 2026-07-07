@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 import type { BoqFlatDoc } from "@/lib/boq/repository";
 import { formatBaht } from "@/lib/format";
 import { PrintButton } from "@/components/boq/PrintButton";
@@ -20,11 +22,15 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
     <div className="mx-auto max-w-3xl bg-white p-6 text-text-primary print:p-0">
       <div className="mb-5 flex items-start justify-between">
         <div>
-          <div className="text-h2 font-bold">
-            <span className="text-primary-700">ARTIVERGES</span>{" "}
-            <span className="text-accent-600">NEXT</span>
-          </div>
-          <p className="text-caption uppercase tracking-wide text-text-secondary">
+          <Image
+            src="/artiverges-next-logo.png"
+            alt="ARTIVERGES NEXT"
+            width={180}
+            height={42}
+            priority
+            style={{ height: "auto", width: "170px" }}
+          />
+          <p className="mt-1 text-caption uppercase tracking-wide text-text-secondary">
             Contractor &amp; Interior Ops
           </p>
         </div>
