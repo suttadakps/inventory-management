@@ -115,13 +115,7 @@ export default async function ProjectDetailPage({
               href={`/projects/${project.id}/boq`}
               className="inline-flex h-9 items-center rounded-md bg-primary-700 px-3 text-body-sm font-medium text-white hover:bg-primary-600"
             >
-              BOQ
-            </Link>
-            <Link
-              href={`/projects/${project.id}/quotations`}
-              className="inline-flex h-9 items-center rounded-md border border-primary-700 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
-            >
-              ใบเสนอราคา
+              BOQ / ใบเสนอราคา
             </Link>
             {canEdit && !project.archived && (
               <Link

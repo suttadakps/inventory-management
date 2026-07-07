@@ -31,17 +31,27 @@ export default async function ProjectQuotationsPage({
 
   return (
     <div className="space-y-5">
-      <div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link
+            href={`/projects/${projectId}`}
+            className="text-body-sm text-text-secondary hover:underline"
+          >
+            ← {data.project.name}
+          </Link>
+          <h2 className="mt-1 text-h2 font-bold text-text-primary">
+            ใบเสนอราคา
+          </h2>
+          <p className="text-body-sm text-text-secondary">
+            {data.project.code} · {data.project.clientName}
+          </p>
+        </div>
         <Link
-          href={`/projects/${projectId}`}
-          className="text-body-sm text-text-secondary hover:underline"
+          href={`/projects/${projectId}/boq`}
+          className="inline-flex h-9 items-center rounded-md border border-primary-700 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
         >
-          ← {data.project.name}
+          ← BOQ
         </Link>
-        <h2 className="mt-1 text-h2 font-bold text-text-primary">ใบเสนอราคา</h2>
-        <p className="text-body-sm text-text-secondary">
-          {data.project.code} · {data.project.clientName}
-        </p>
       </div>
 
       {canManage && (
