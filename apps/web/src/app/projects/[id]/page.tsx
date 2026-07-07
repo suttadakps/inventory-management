@@ -10,11 +10,14 @@ import {
 import {
   getProjectForUser,
   sumProjectIncoming,
+  listStatusHistory,
+  listProjectNotes,
 } from "@/lib/projects/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { ProjectProgressControl } from "@/components/projects/ProjectProgressControl";
+import { ProjectNotes } from "@/components/projects/ProjectNotes";
 import {
   ArchiveProjectButton,
   RestoreProjectButton,
@@ -53,9 +56,19 @@ export default async function ProjectDetailPage({
   const project = await getProjectForUser(user, id);
   if (!project) notFound();
 
-  const received = await sumProjectIncoming(id);
+  const [received, history, notes] = await Promise.all([
+    sumProjectIncoming(id),
+    listStatusHistory(id),
+    listProjectNotes(id),
+  ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
+
+  // Fall back to the current status when there is no recorded history yet.
+  const timeline =
+    history.length > 0
+      ? history
+      : [{ status: project.status, date: project.updatedAt }];
 
   const isManager = project.managerId === user.id;
   const isAssignedEngineer = project.siteEngineerId === user.id;
@@ -218,6 +231,47 @@ export default async function ProjectDetailPage({
               </dd>
             </div>
           </dl>
+        </ContentCard>
+      </div>
+
+      {/* Timeline + daily log */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <ContentCard className="p-6">
+          <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+            Timeline สถานะ
+          </h3>
+          <ul className="space-y-4">
+            {timeline.map((h, idx) => {
+              const t = STATUS_TH[h.status] ?? {
+                label: h.status,
+                tone: "gray" as StatusTone,
+              };
+              return (
+                <li key={idx} className="flex gap-3">
+                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-700" />
+                  <div>
+                    <div className="font-medium text-text-primary">
+                      {t.label}
+                    </div>
+                    <div className="text-caption text-text-secondary">
+                      {fmtDate(h.date)}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </ContentCard>
+
+        <ContentCard className="p-6">
+          <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+            บันทึกรายวัน
+          </h3>
+          <ProjectNotes
+            projectId={project.id}
+            notes={notes}
+            canAdd={!project.archived}
+          />
         </ContentCard>
       </div>
     </div>

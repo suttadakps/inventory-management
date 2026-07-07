@@ -499,8 +499,59 @@ export async function setProjectStatus(
   status: ProjectStatus,
   actorId: string
 ): Promise<void> {
-  await prisma.project.update({
-    where: { id: projectId },
-    data: { status, updatedById: actorId },
+  await prisma.$transaction([
+    prisma.project.update({
+      where: { id: projectId },
+      data: { status, updatedById: actorId },
+    }),
+    prisma.projectStatusHistory.create({
+      data: { projectId, status, changedById: actorId },
+    }),
+  ]);
+}
+
+export type StatusHistoryItem = { status: ProjectStatus; date: string };
+
+export async function listStatusHistory(
+  projectId: string
+): Promise<StatusHistoryItem[]> {
+  const rows = await prisma.projectStatusHistory.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: 20,
+  });
+  return rows.map((r) => ({ status: r.status, date: r.createdAt.toISOString() }));
+}
+
+export type ProjectNoteItem = {
+  id: string;
+  body: string;
+  authorName: string | null;
+  date: string;
+};
+
+export async function listProjectNotes(
+  projectId: string
+): Promise<ProjectNoteItem[]> {
+  const rows = await prisma.projectNote.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    body: r.body,
+    authorName: r.authorName,
+    date: r.createdAt.toISOString(),
+  }));
+}
+
+export async function addProjectNote(
+  projectId: string,
+  body: string,
+  author: { id: string; name: string | null }
+): Promise<void> {
+  await prisma.projectNote.create({
+    data: { projectId, body, authorId: author.id, authorName: author.name },
   });
 }

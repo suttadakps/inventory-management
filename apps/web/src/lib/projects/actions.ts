@@ -83,6 +83,25 @@ export async function updateProjectStatusAction(
   return { ok: true };
 }
 
+/** Add a daily-log note to a project (text only). */
+export async function addProjectNoteAction(
+  projectId: string,
+  body: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  const text = body.trim();
+  if (!text) return { ok: false, error: "กรุณากรอกข้อความ" };
+  // Anyone who can view the project may add a note.
+  const project = await repo.getProjectForUser(user, projectId);
+  if (!project) return { ok: false, error: "ไม่พบโปรเจค" };
+  await repo.addProjectNote(projectId, text, {
+    id: user.id,
+    name: user.fullName ?? user.email,
+  });
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
 /** Quick-create a project with just a name; details are added later on edit. */
 export async function createProjectQuick(formData: FormData): Promise<void> {
   const user = await requireUser();
