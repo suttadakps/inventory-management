@@ -81,10 +81,16 @@ export function BoqFlatEditor({
 
   const milestonePct = milestones.reduce((s, m) => s + (m.percent || 0), 0);
 
-  const saveMilestones = (next: BoqMilestone[]) =>
+  // Milestones are auto-numbered "งวดที่ N"; the user only enters the percent.
+  const saveMilestones = (next: BoqMilestone[]) => {
+    const normalized = next.map((m, i) => ({
+      label: `งวดที่ ${i + 1}`,
+      percent: m.percent || 0,
+    }));
     startTransition(() => {
-      void updateBoqHeaderAction(doc.id, { milestones: next });
+      void updateBoqHeaderAction(doc.id, { milestones: normalized });
     });
+  };
 
   const setMilestone = (idx: number, patch: Partial<BoqMilestone>) =>
     setMilestones((ms) =>
@@ -300,16 +306,9 @@ export function BoqFlatEditor({
               <div className="space-y-2">
                 {milestones.map((m, idx) => (
                   <div key={idx} className="flex items-center gap-2">
-                    <input
-                      value={m.label}
-                      disabled={!editable}
-                      onChange={(e) =>
-                        setMilestone(idx, { label: e.target.value })
-                      }
-                      onBlur={() => saveMilestones(milestones)}
-                      placeholder={`งวดที่ ${idx + 1}`}
-                      className="h-9 flex-1 rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-2.5 text-body-sm focus:border-primary-600 focus:bg-white focus:outline-none"
-                    />
+                    <span className="w-16 shrink-0 text-body-sm text-text-primary">
+                      งวดที่ {idx + 1}
+                    </span>
                     <div className="flex items-center gap-1">
                       <input
                         inputMode="decimal"
@@ -321,11 +320,11 @@ export function BoqFlatEditor({
                           })
                         }
                         onBlur={() => saveMilestones(milestones)}
-                        className="h-9 w-16 rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-2 text-right text-body-sm tabular-nums focus:border-primary-600 focus:bg-white focus:outline-none"
+                        className="h-9 w-20 rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-2 text-right text-body-sm tabular-nums focus:border-primary-600 focus:bg-white focus:outline-none"
                       />
                       <span className="text-caption text-text-secondary">%</span>
                     </div>
-                    <span className="w-24 text-right text-body-sm tabular-nums text-text-primary">
+                    <span className="flex-1 text-right text-body-sm tabular-nums text-text-primary">
                       {formatBaht(
                         round2((grandTotal * (m.percent || 0)) / 100),
                         true
@@ -336,7 +335,7 @@ export function BoqFlatEditor({
                         type="button"
                         onClick={() => removeMilestone(idx)}
                         aria-label="ลบงวด"
-                        className="text-text-secondary hover:text-danger"
+                        className="shrink-0 text-text-secondary hover:text-danger"
                       >
                         ×
                       </button>
