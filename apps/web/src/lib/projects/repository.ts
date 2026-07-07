@@ -624,3 +624,56 @@ export async function deleteProjectPayment(
     where: { id: paymentId, projectId, direction: "incoming" },
   });
 }
+
+// ---- Client portal (พอร์ทัลลูกค้า) — read-only project overview --------------
+
+export type PortalProject = {
+  id: string;
+  name: string;
+  code: string;
+  clientName: string;
+  status: ProjectStatus;
+  progress: number;
+  value: number;
+  received: number;
+  outstanding: number;
+  endDate: string | null;
+};
+
+export async function listPortalProjects(
+  user: CurrentUser
+): Promise<PortalProject[]> {
+  const projects = await prisma.project.findMany({
+    where: { deletedAt: null, ...scopeWhere(user) },
+    orderBy: { updatedAt: "desc" },
+    take: 100,
+    select: {
+      id: true,
+      name: true,
+      code: true,
+      status: true,
+      progressPct: true,
+      contractValue: true,
+      endDate: true,
+      client: { select: { name: true } },
+      payments: { where: { direction: "incoming" }, select: { amount: true } },
+    },
+  });
+
+  return projects.map((p) => {
+    const value = p.contractValue ? p.contractValue.toNumber() : 0;
+    const received = p.payments.reduce((s, x) => s + x.amount.toNumber(), 0);
+    return {
+      id: p.id,
+      name: p.name,
+      code: p.code,
+      clientName: p.client.name,
+      status: p.status,
+      progress: p.progressPct.toNumber(),
+      value,
+      received,
+      outstanding: Math.max(0, value - received),
+      endDate: p.endDate ? p.endDate.toISOString().slice(0, 10) : null,
+    };
+  });
+}
