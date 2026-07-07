@@ -50,6 +50,14 @@ const progress = z.preprocess(
     .max(100, "Progress cannot exceed 100.")
 );
 
+const commissionRate = z.preprocess(
+  (v) => (typeof v === "string" && v.trim() === "" ? 0 : v),
+  z.coerce
+    .number({ invalid_type_error: "Enter a valid percentage." })
+    .min(0, "Commission cannot be below 0%.")
+    .max(100, "Commission cannot exceed 100%.")
+);
+
 export const projectBaseSchema = z
   .object({
     code: z
@@ -70,6 +78,8 @@ export const projectBaseSchema = z
     address: optionalString,
     status: z.enum(PROJECT_STATUSES),
     budget: optionalMoney,
+    contractValue: optionalMoney,
+    commissionRate,
     startDate: optionalDate,
     endDate: optionalDate,
     progress,

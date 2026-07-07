@@ -38,6 +38,7 @@ export type ProjectDetail = ProjectListItem & {
   managerId: string | null;
   siteEngineerId: string | null;
   contractValue: number | null;
+  commissionRate: number;
   actualCost: number;
   createdAt: string;
   updatedAt: string;
@@ -53,6 +54,8 @@ export type ProjectWriteInput = {
   address?: string;
   status: ProjectStatus;
   budget?: number;
+  contractValue?: number;
+  commissionRate: number;
   startDate?: Date;
   endDate?: Date;
   progress: number;
@@ -122,6 +125,7 @@ function toDetail(p: ProjectRecord): ProjectDetail {
     managerId: p.managerId,
     siteEngineerId: p.members[0]?.userId ?? null,
     contractValue: dec(p.contractValue),
+    commissionRate: p.commissionRate.toNumber(),
     actualCost: p.actualCost.toNumber(),
     createdAt: p.createdAt.toISOString(),
     updatedAt: p.updatedAt.toISOString(),
@@ -263,6 +267,8 @@ function editableData(input: ProjectWriteInput, actorId: string) {
     status: input.status,
     address: input.address ?? null,
     budgetCost: input.budget ?? null,
+    contractValue: input.contractValue ?? null,
+    commissionRate: input.commissionRate,
     startDate: input.startDate ?? null,
     endDate: input.endDate ?? null,
     progressPct: input.progress,
@@ -341,4 +347,75 @@ export async function restoreProject(
     where: { id },
     data: { deletedAt: null, updatedById: actorId },
   });
+}
+
+// ---- AE commission view ("โปรเจคของฉัน") ------------------------------------
+// Commission per project = contract value × commission rate (%). Received vs
+// outstanding commission is derived from how much of the contract has actually
+// been collected (incoming payments ÷ contract value).
+
+const round2c = (n: number): number =>
+  Math.round((n + Number.EPSILON) * 100) / 100;
+
+export type AeCommissionRow = {
+  id: string;
+  name: string;
+  clientName: string;
+  status: ProjectStatus;
+  contractValue: number;
+  commission: number;
+  received: number;
+  outstanding: number;
+};
+
+export type AeCommission = {
+  totalSold: number;
+  totalReceived: number;
+  totalOutstanding: number;
+  rows: AeCommissionRow[];
+};
+
+export async function listAeCommission(user: CurrentUser): Promise<AeCommission> {
+  const projects = await prisma.project.findMany({
+    where: { deletedAt: null, ...scopeWhere(user) },
+    orderBy: { updatedAt: "desc" },
+    select: {
+      id: true,
+      name: true,
+      status: true,
+      contractValue: true,
+      commissionRate: true,
+      client: { select: { name: true } },
+      payments: {
+        where: { direction: "incoming" },
+        select: { amount: true },
+      },
+    },
+  });
+
+  const rows: AeCommissionRow[] = projects.map((p) => {
+    const value = p.contractValue ? p.contractValue.toNumber() : 0;
+    const rate = p.commissionRate.toNumber(); // percent
+    const commission = round2c((value * rate) / 100);
+    const collected = p.payments.reduce((s, x) => s + x.amount.toNumber(), 0);
+    const ratio = value > 0 ? Math.min(1, collected / value) : 0;
+    const received = round2c(commission * ratio);
+    return {
+      id: p.id,
+      name: p.name,
+      clientName: p.client.name,
+      status: p.status,
+      contractValue: value,
+      commission,
+      received,
+      outstanding: round2c(commission - received),
+    };
+  });
+
+  return {
+    totalSold: round2c(rows.reduce((s, r) => s + r.contractValue, 0)),
+    totalReceived: round2c(rows.reduce((s, r) => s + r.received, 0)),
+    totalOutstanding: round2c(rows.reduce((s, r) => s + r.outstanding, 0)),
+    rows,
+  };
 }

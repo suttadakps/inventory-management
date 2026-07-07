@@ -22,6 +22,8 @@ export type ProjectFormValues = {
   address?: string | null;
   status?: string;
   budget?: number | null;
+  contractValue?: number | null;
+  commissionRate?: number | null;
   startDate?: string | null;
   endDate?: string | null;
   progress?: number;
@@ -157,7 +159,23 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="budget">Budget (₹)</Label>
+          <Label htmlFor="contractValue">มูลค่างาน (฿)</Label>
+          <Input
+            id="contractValue"
+            name="contractValue"
+            type="number"
+            min={0}
+            step="0.01"
+            inputMode="decimal"
+            defaultValue={values?.contractValue ?? ""}
+            placeholder="0.00"
+            invalid={Boolean(fe.contractValue)}
+          />
+          <FieldError message={fe.contractValue} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="budget">งบต้นทุน (฿)</Label>
           <Input
             id="budget"
             name="budget"
@@ -170,6 +188,23 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
             invalid={Boolean(fe.budget)}
           />
           <FieldError message={fe.budget} />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label htmlFor="commissionRate">ค่าคอมมิชชั่น (%)</Label>
+          <Input
+            id="commissionRate"
+            name="commissionRate"
+            type="number"
+            min={0}
+            max={100}
+            step="0.001"
+            inputMode="decimal"
+            defaultValue={values?.commissionRate ?? ""}
+            placeholder="เช่น 3"
+            invalid={Boolean(fe.commissionRate)}
+          />
+          <FieldError message={fe.commissionRate} />
         </div>
 
         <div className="space-y-1.5">

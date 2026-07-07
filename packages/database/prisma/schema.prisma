@@ -258,6 +258,7 @@ model Project {
   budgetCost    Decimal?      @map("budget_cost") @db.Decimal(14, 2)
   actualCost    Decimal       @default(0) @map("actual_cost") @db.Decimal(14, 2)
   progressPct   Decimal       @default(0) @map("progress_pct") @db.Decimal(5, 2)
+  commissionRate Decimal      @default(0) @map("commission_rate") @db.Decimal(6, 3)
   createdById   String?       @map("created_by") @db.Uuid
   updatedById   String?       @map("updated_by") @db.Uuid
   createdAt     DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)

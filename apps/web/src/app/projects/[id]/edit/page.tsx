@@ -66,6 +66,8 @@ export default async function EditProjectPage({
             address: project.address,
             status: project.status,
             budget: project.budget,
+            contractValue: project.contractValue,
+            commissionRate: project.commissionRate,
             startDate: project.startDate,
             endDate: project.endDate,
             progress: project.progress,
