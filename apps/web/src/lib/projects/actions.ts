@@ -83,6 +83,66 @@ export async function updateProjectStatusAction(
   return { ok: true };
 }
 
+const PAYMENT_METHODS = [
+  "cash",
+  "bank_transfer",
+  "cheque",
+  "card",
+  "upi",
+  "other",
+] as const;
+
+/** Record an incoming payment (การรับเงิน) against a project. */
+export async function addPaymentAction(
+  projectId: string,
+  input: { amount: number; method?: string; date?: string; note?: string }
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  if (!(input.amount > 0))
+    return { ok: false, error: "กรุณากรอกจำนวนเงินที่ถูกต้อง" };
+
+  const project = await repo.getProjectForUser(user, projectId);
+  if (!project) return { ok: false, error: "ไม่พบโปรเจค" };
+
+  const method =
+    input.method && (PAYMENT_METHODS as readonly string[]).includes(input.method)
+      ? (input.method as (typeof PAYMENT_METHODS)[number])
+      : undefined;
+
+  await repo.addProjectPayment(
+    projectId,
+    {
+      amount: input.amount,
+      method,
+      paidAt: input.date ? new Date(input.date) : undefined,
+      note: input.note?.trim() || undefined,
+      clientId: project.clientId,
+    },
+    user.id
+  );
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/my-projects");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+/** Delete an incoming payment from a project. */
+export async function deletePaymentAction(
+  projectId: string,
+  paymentId: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.deleteProjectPayment(paymentId, projectId);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/my-projects");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
 /** Add a daily-log note to a project (text only). */
 export async function addProjectNoteAction(
   projectId: string,

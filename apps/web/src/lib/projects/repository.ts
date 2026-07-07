@@ -1,4 +1,8 @@
-import { Prisma, type ProjectStatus } from "@artiverges/database";
+import {
+  Prisma,
+  type ProjectStatus,
+  type PaymentMethod,
+} from "@artiverges/database";
 import { prisma } from "@/lib/db";
 import type { Role } from "@/lib/auth/roles";
 import type { CurrentUser } from "@/lib/auth/session";
@@ -555,5 +559,68 @@ export async function addProjectNote(
 ): Promise<void> {
   await prisma.projectNote.create({
     data: { projectId, body, authorId: author.id, authorName: author.name },
+  });
+}
+
+// ---- Incoming payments (การรับเงิน) -----------------------------------------
+
+export type ProjectPaymentItem = {
+  id: string;
+  amount: number;
+  method: string | null;
+  date: string;
+  note: string | null;
+};
+
+export async function listProjectPayments(
+  projectId: string
+): Promise<ProjectPaymentItem[]> {
+  const rows = await prisma.payment.findMany({
+    where: { projectId, direction: "incoming" },
+    orderBy: { paidAt: "desc" },
+    take: 100,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    amount: r.amount.toNumber(),
+    method: r.method,
+    date: r.paidAt.toISOString(),
+    note: r.note,
+  }));
+}
+
+export async function addProjectPayment(
+  projectId: string,
+  input: {
+    amount: number;
+    method?: PaymentMethod;
+    paidAt?: Date;
+    note?: string;
+    clientId?: string | null;
+  },
+  actorId: string
+): Promise<void> {
+  await prisma.payment.create({
+    data: {
+      direction: "incoming",
+      partyType: "client",
+      projectId,
+      clientId: input.clientId ?? null,
+      amount: input.amount,
+      method: input.method ?? null,
+      paidAt: input.paidAt ?? new Date(),
+      note: input.note ?? null,
+      createdById: actorId,
+      updatedById: actorId,
+    },
+  });
+}
+
+export async function deleteProjectPayment(
+  paymentId: string,
+  projectId: string
+): Promise<void> {
+  await prisma.payment.deleteMany({
+    where: { id: paymentId, projectId, direction: "incoming" },
   });
 }

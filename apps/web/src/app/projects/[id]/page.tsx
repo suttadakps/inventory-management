@@ -12,12 +12,14 @@ import {
   sumProjectIncoming,
   listStatusHistory,
   listProjectNotes,
+  listProjectPayments,
 } from "@/lib/projects/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { ProjectProgressControl } from "@/components/projects/ProjectProgressControl";
 import { ProjectNotes } from "@/components/projects/ProjectNotes";
+import { ProjectPayments } from "@/components/projects/ProjectPayments";
 import {
   ArchiveProjectButton,
   RestoreProjectButton,
@@ -56,10 +58,11 @@ export default async function ProjectDetailPage({
   const project = await getProjectForUser(user, id);
   if (!project) notFound();
 
-  const [received, history, notes] = await Promise.all([
+  const [received, history, notes, payments] = await Promise.all([
     sumProjectIncoming(id),
     listStatusHistory(id),
     listProjectNotes(id),
+    listProjectPayments(id),
   ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
@@ -161,6 +164,18 @@ export default async function ProjectDetailPage({
             editable={canEdit && !project.archived}
           />
         </div>
+      </ContentCard>
+
+      {/* Incoming payments */}
+      <ContentCard className="p-6">
+        <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+          การรับเงิน
+        </h3>
+        <ProjectPayments
+          projectId={project.id}
+          payments={payments}
+          canEdit={canEdit && !project.archived}
+        />
       </ContentCard>
 
       {/* Overview + finance */}
