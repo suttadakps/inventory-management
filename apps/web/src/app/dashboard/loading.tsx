@@ -32,9 +32,20 @@ function ListPanelSkeleton() {
   );
 }
 
+function FilterBarSkeleton() {
+  return (
+    <div className="flex flex-wrap items-end gap-3 rounded-lg border border-[#ece7db] bg-white p-4 shadow-1">
+      <Pulse className="h-10 w-40" />
+      <Pulse className="h-10 w-40" />
+      <Pulse className="h-10 w-28" />
+    </div>
+  );
+}
+
 export default function DashboardLoading() {
   return (
     <div className="space-y-6">
+      <FilterBarSkeleton />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 8 }).map((_, i) => (
           <StatCardSkeleton key={i} />

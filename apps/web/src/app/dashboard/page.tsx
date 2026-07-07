@@ -16,6 +16,11 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
+const dateFmtTh = new Intl.DateTimeFormat("th-TH", {
+  day: "numeric",
+  month: "short",
+  year: "numeric",
+});
 
 function baht(n: number): string {
   return baht0.format(Number.isFinite(n) ? n : 0);
@@ -74,18 +79,102 @@ function CreamProgress({ value }: { value: number }) {
   );
 }
 
-export default async function DashboardPage() {
+/** Parses a `YYYY-MM-DD` search-param value (from an <input type="date">)
+ * into a Date, or undefined if missing/invalid. */
+function parseDateParam(v: string | undefined): Date | undefined {
+  if (!v) return undefined;
+  const d = new Date(v);
+  return Number.isNaN(d.getTime()) ? undefined : d;
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ from?: string; to?: string }>;
+}) {
   await requireUser();
+  const sp = await searchParams;
+
+  let from = parseDateParam(sp.from);
+  let to = parseDateParam(sp.to);
+  // Swap if the user picked a reversed range, so the filter still makes sense.
+  if (from && to && from > to) [from, to] = [to, from];
+  const hasRange = Boolean(from || to);
 
   // Independent reads — fetched in parallel. Each is itself a cached,
   // DB-side-aggregated/bounded query (see lib/dashboard/repository.ts).
   const [kpis, lists] = await Promise.all([
-    getDashboardKpis(),
-    getDashboardLists(),
+    getDashboardKpis({ from, to }),
+    getDashboardLists({ from, to }),
   ]);
+
+  const deadlineLabel = kpis.deadlineIsPeriodScoped
+    ? "ครบกำหนดส่งในช่วงที่เลือก"
+    : "ใกล้ Deadline (14 วัน)";
+  const deadlineSectionEmpty = kpis.deadlineIsPeriodScoped
+    ? "ไม่มีโปรเจคที่ครบกำหนดส่งในช่วงเวลาที่เลือก"
+    : "ไม่มีโปรเจคที่ใกล้ถึงกำหนดส่งใน 14 วัน";
 
   return (
     <div className="space-y-6">
+      {/* Period filter */}
+      <form
+        method="get"
+        className="flex flex-wrap items-end gap-3 rounded-lg border border-[#ece7db] bg-white p-4 shadow-1"
+      >
+        <div className="space-y-1.5">
+          <label
+            htmlFor="from"
+            className="text-caption font-medium text-text-secondary"
+          >
+            จากวันที่
+          </label>
+          <input
+            id="from"
+            type="date"
+            name="from"
+            defaultValue={sp.from ?? ""}
+            className="h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="to"
+            className="text-caption font-medium text-text-secondary"
+          >
+            ถึงวันที่
+          </label>
+          <input
+            id="to"
+            type="date"
+            name="to"
+            defaultValue={sp.to ?? ""}
+            className="h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center justify-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white transition-colors hover:bg-primary-600"
+        >
+          กรองข้อมูล
+        </button>
+        {hasRange && (
+          <Link
+            href="/dashboard"
+            className="text-body-sm font-medium text-text-secondary hover:text-text-primary hover:underline"
+          >
+            ล้างตัวกรอง
+          </Link>
+        )}
+        <span className="ml-auto text-caption text-text-secondary">
+          {hasRange
+            ? `แสดงข้อมูล${from ? ` ตั้งแต่ ${dateFmtTh.format(from)}` : ""}${
+                to ? ` ถึง ${dateFmtTh.format(to)}` : ""
+              }`
+            : "แสดงข้อมูลทั้งหมด"}
+        </span>
+      </form>
+
       {/* KPI grid */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard label="ยอดขายรวม" value={baht(kpis.totalSales)} />
@@ -109,7 +198,7 @@ export default async function DashboardPage() {
         />
         <StatCard label="กำลังดำเนินการ" value={`${kpis.inProgress} โปรเจค`} />
         <StatCard
-          label="ใกล้ Deadline (14 วัน)"
+          label={deadlineLabel}
           value={`${kpis.deadlineCount} โปรเจค`}
           tone="orange"
         />
@@ -164,14 +253,14 @@ export default async function DashboardPage() {
           )}
         </section>
 
-        {/* Upcoming deadlines */}
+        {/* Upcoming / period deadlines */}
         <section className="rounded-lg border border-[#ece7db] bg-white p-6 shadow-1">
           <h2 className="mb-4 text-h3 font-semibold text-text-primary">
-            ใกล้ถึง Deadline
+            {kpis.deadlineIsPeriodScoped ? "กำหนดส่งในช่วงที่เลือก" : "ใกล้ถึง Deadline"}
           </h2>
           {lists.deadlines.length === 0 ? (
             <p className="text-body-sm text-text-secondary">
-              ไม่มีโปรเจคที่ใกล้ถึงกำหนดส่งใน 14 วัน
+              {deadlineSectionEmpty}
             </p>
           ) : (
             <ul className="divide-y divide-[#f0ece2]">
