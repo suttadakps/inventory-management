@@ -9,7 +9,7 @@ import {
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { ProjectFilterBar } from "@/components/ui/ProjectFilterBar";
+import { SelectFilterBar } from "@/components/ui/SelectFilterBar";
 import { CostForm } from "@/components/costs/CostForm";
 import { CostDeleteButton } from "@/components/costs/CostDeleteButton";
 import { formatBaht } from "@/lib/format";
@@ -55,10 +55,12 @@ export default async function CostsPage({
 
       {canManage && <CostForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />}
 
-      <ProjectFilterBar
+      <SelectFilterBar
         basePath="/costs"
-        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-        selectedId={sp.projectId}
+        label="โปรเจค"
+        paramName="projectId"
+        allLabel="ทุกโปรเจค"
+        options={projects.map((p) => ({ value: p.id, label: p.name }))}
       />
 
       {visibleRows.length === 0 ? (

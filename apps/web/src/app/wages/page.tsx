@@ -6,7 +6,7 @@ import { listWages, canManageWages } from "@/lib/wages/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
-import { ProjectFilterBar } from "@/components/ui/ProjectFilterBar";
+import { SelectFilterBar } from "@/components/ui/SelectFilterBar";
 import { WageForm } from "@/components/wages/WageForm";
 import { WageActions } from "@/components/wages/WageActions";
 import { formatBaht } from "@/lib/format";
@@ -27,7 +27,7 @@ const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
 export default async function WagesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ projectId?: string }>;
+  searchParams: Promise<{ projectId?: string; workerName?: string }>;
 }) {
   const user = await requireUser();
   const sp = await searchParams;
@@ -37,11 +37,19 @@ export default async function WagesPage({
   ]);
   const canManage = canManageWages(user.role);
 
+  // Distinct worker names present in the data, for the filter dropdown.
+  const workerNames = Array.from(
+    new Set(data.rows.map((r) => r.workerName))
+  ).sort((a, b) => a.localeCompare(b, "th"));
+
   // Summary cards always reflect the full (unfiltered) data; only the table
-  // below narrows to the selected project.
-  const visibleRows = sp.projectId
-    ? data.rows.filter((r) => r.projectId === sp.projectId)
-    : data.rows;
+  // below narrows to the selected project and/or worker.
+  const visibleRows = data.rows.filter(
+    (r) =>
+      (!sp.projectId || r.projectId === sp.projectId) &&
+      (!sp.workerName || r.workerName === sp.workerName)
+  );
+  const hasFilter = Boolean(sp.projectId || sp.workerName);
 
   return (
     <div className="space-y-5">
@@ -63,15 +71,26 @@ export default async function WagesPage({
         <WageForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
       )}
 
-      <ProjectFilterBar
-        basePath="/wages"
-        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-        selectedId={sp.projectId}
-      />
+      <div className="flex flex-wrap items-center gap-4">
+        <SelectFilterBar
+          basePath="/wages"
+          label="โปรเจค"
+          paramName="projectId"
+          allLabel="ทุกโปรเจค"
+          options={projects.map((p) => ({ value: p.id, label: p.name }))}
+        />
+        <SelectFilterBar
+          basePath="/wages"
+          label="คนงาน"
+          paramName="workerName"
+          allLabel="ทุกคนงาน"
+          options={workerNames.map((n) => ({ value: n, label: n }))}
+        />
+      </div>
 
       {visibleRows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#ddd6c8] bg-white p-10 text-center text-body-sm text-text-secondary">
-          {sp.projectId ? "ไม่มีรายการค่าแรงของโปรเจคนี้" : "ยังไม่มีรายการค่าแรง"}
+          {hasFilter ? "ไม่มีรายการค่าแรงตามที่กรอง" : "ยังไม่มีรายการค่าแรง"}
         </div>
       ) : (
         <ContentCard className="overflow-x-auto">
