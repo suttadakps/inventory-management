@@ -42,27 +42,32 @@ export default async function WagesPage({
     new Set(data.rows.map((r) => r.workerName))
   ).sort((a, b) => a.localeCompare(b, "th"));
 
-  // Summary cards always reflect the full (unfiltered) data; only the table
-  // below narrows to the selected project and/or worker.
+  // Summary cards recompute from the filtered rows, so they always match
+  // what the table below is showing (with no filter, that's everything).
   const visibleRows = data.rows.filter(
     (r) =>
       (!sp.projectId || r.projectId === sp.projectId) &&
       (!sp.workerName || r.workerName === sp.workerName)
   );
   const hasFilter = Boolean(sp.projectId || sp.workerName);
+  const visibleTotal = visibleRows.reduce((s, r) => s + r.amount, 0);
+  const visiblePaid = visibleRows
+    .filter((r) => r.status === "paid")
+    .reduce((s, r) => s + r.amount, 0);
+  const visibleUnpaid = visibleTotal - visiblePaid;
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetricCard label="ค่าแรงรวม" value={formatBaht(data.total, true)} />
+        <MetricCard label="ค่าแรงรวม" value={formatBaht(visibleTotal, true)} />
         <MetricCard
           label="จ่ายแล้ว"
-          value={formatBaht(data.paid, true)}
+          value={formatBaht(visiblePaid, true)}
           tone="green"
         />
         <MetricCard
           label="ค้างจ่าย"
-          value={formatBaht(data.unpaid, true)}
+          value={formatBaht(visibleUnpaid, true)}
           tone="orange"
         />
       </div>
