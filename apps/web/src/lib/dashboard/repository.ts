@@ -10,15 +10,15 @@ import { prisma } from "@/lib/db";
  * with a short revalidate window: the values only need to be "fresh within a
  * few seconds," not real-time, and caching avoids re-running the same
  * aggregate/count queries on every dashboard view/navigation. The period
- * (from/to) is part of the cache key, so each selected range gets its own
- * cached entry.
+ * (from/to) and the selected project are part of the cache key, so each
+ * combination gets its own cached entry.
  *
  * Query shape favors DB-side aggregation (count/aggregate + bounded, sorted,
  * select-pruned findMany) over fetching full row sets and filtering/slicing
  * in JS, so cost stays flat as the projects table grows.
  */
 
-export type DashboardRange = { from?: Date; to?: Date };
+export type DashboardRange = { from?: Date; to?: Date; projectId?: string };
 
 const num = (d: unknown): number => {
   if (!d) return 0;
@@ -72,10 +72,12 @@ export type DashboardKpis = {
 
 async function loadKpis(
   fromISO: string | null,
-  toISO: string | null
+  toISO: string | null,
+  projectId: string | null
 ): Promise<DashboardKpis> {
   const range = dateFilter(fromISO, toISO);
   const projectCreatedFilter = range ? { createdAt: range } : {};
+  const projectIdFilter = projectId ? { id: projectId } : {};
 
   let deadlineWhere: Prisma.ProjectWhereInput;
   let deadlineIsPeriodScoped: boolean;
@@ -85,6 +87,7 @@ async function loadKpis(
       deletedAt: null,
       status: { notIn: ["completed", "closed"] },
       endDate: range,
+      ...projectIdFilter,
     };
     deadlineIsPeriodScoped = true;
   } else {
@@ -94,19 +97,27 @@ async function loadKpis(
       deletedAt: null,
       status: { notIn: ["completed", "closed"] },
       endDate: { gte: todayStart, lte: in14 },
+      ...projectIdFilter,
     };
     deadlineIsPeriodScoped = false;
   }
 
   const [projectCount, inProgress, deadlineCount, projAgg, salesAgg, receivedAgg] =
     await Promise.all([
-      prisma.project.count({ where: { deletedAt: null, ...projectCreatedFilter } }),
       prisma.project.count({
-        where: { deletedAt: null, status: "active", ...projectCreatedFilter },
+        where: { deletedAt: null, ...projectCreatedFilter, ...projectIdFilter },
+      }),
+      prisma.project.count({
+        where: {
+          deletedAt: null,
+          status: "active",
+          ...projectCreatedFilter,
+          ...projectIdFilter,
+        },
       }),
       prisma.project.count({ where: deadlineWhere }),
       prisma.project.aggregate({
-        where: { deletedAt: null, ...projectCreatedFilter },
+        where: { deletedAt: null, ...projectCreatedFilter, ...projectIdFilter },
         _sum: { contractValue: true, actualCost: true },
       }),
       prisma.contract.aggregate({
@@ -114,6 +125,7 @@ async function loadKpis(
           deletedAt: null,
           status: { in: ["approved", "signed", "completed"] },
           ...(range ? { createdAt: range } : {}),
+          ...(projectId ? { projectId } : {}),
         },
         _sum: { value: true },
       }),
@@ -121,6 +133,7 @@ async function loadKpis(
         where: {
           direction: "incoming",
           ...(range ? { paidAt: range } : {}),
+          ...(projectId ? { projectId } : {}),
         },
         _sum: { amount: true },
       }),
@@ -173,10 +186,12 @@ export type DashboardLists = {
 
 async function loadLists(
   fromISO: string | null,
-  toISO: string | null
+  toISO: string | null,
+  projectId: string | null
 ): Promise<DashboardLists> {
   const range = dateFilter(fromISO, toISO);
   const projectCreatedFilter = range ? { createdAt: range } : {};
+  const projectIdFilter = projectId ? { id: projectId } : {};
 
   const deadlineDateFilter = range
     ? range
@@ -194,6 +209,7 @@ async function loadLists(
         deletedAt: null,
         status: { notIn: ["completed", "closed"] },
         ...projectCreatedFilter,
+        ...projectIdFilter,
       },
       orderBy: { updatedAt: "desc" },
       take: 6,
@@ -210,6 +226,7 @@ async function loadLists(
         deletedAt: null,
         status: { notIn: ["completed", "closed"] },
         endDate: deadlineDateFilter,
+        ...projectIdFilter,
       },
       orderBy: { endDate: "asc" },
       take: 10,
@@ -233,8 +250,9 @@ async function loadLists(
   };
 }
 
-// 30s revalidate per (from, to) pair: numbers stay effectively live while
-// collapsing repeat views of the same period onto one shared cached read.
+// 30s revalidate per (from, to, projectId) combination: numbers stay
+// effectively live while collapsing repeat views of the same filter onto one
+// shared cached read.
 const cachedLoadKpis = unstable_cache(loadKpis, ["dashboard-kpis"], {
   revalidate: 30,
 });
@@ -247,9 +265,17 @@ function isoOrNull(d: Date | undefined): string | null {
 }
 
 export function getDashboardKpis(range: DashboardRange = {}) {
-  return cachedLoadKpis(isoOrNull(range.from), isoOrNull(range.to));
+  return cachedLoadKpis(
+    isoOrNull(range.from),
+    isoOrNull(range.to),
+    range.projectId ?? null
+  );
 }
 
 export function getDashboardLists(range: DashboardRange = {}) {
-  return cachedLoadLists(isoOrNull(range.from), isoOrNull(range.to));
+  return cachedLoadLists(
+    isoOrNull(range.from),
+    isoOrNull(range.to),
+    range.projectId ?? null
+  );
 }

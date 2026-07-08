@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
 import { getDashboardKpis, getDashboardLists } from "@/lib/dashboard/repository";
+import { listProjects } from "@/lib/projects/repository";
 
 export const metadata: Metadata = { title: "Dashboard · ARTIVERGES NEXT" };
 
@@ -90,23 +91,28 @@ function parseDateParam(v: string | undefined): Date | undefined {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; projectId?: string }>;
 }) {
-  await requireUser();
+  const user = await requireUser();
   const sp = await searchParams;
 
   let from = parseDateParam(sp.from);
   let to = parseDateParam(sp.to);
   // Swap if the user picked a reversed range, so the filter still makes sense.
   if (from && to && from > to) [from, to] = [to, from];
-  const hasRange = Boolean(from || to);
+  const projectId = sp.projectId || undefined;
+  const hasFilter = Boolean(from || to || projectId);
 
   // Independent reads — fetched in parallel. Each is itself a cached,
   // DB-side-aggregated/bounded query (see lib/dashboard/repository.ts).
-  const [kpis, lists] = await Promise.all([
-    getDashboardKpis({ from, to }),
-    getDashboardLists({ from, to }),
+  const [kpis, lists, projects] = await Promise.all([
+    getDashboardKpis({ from, to, projectId }),
+    getDashboardLists({ from, to, projectId }),
+    listProjects(user, {}),
   ]);
+  const selectedProject = projectId
+    ? projects.find((p) => p.id === projectId)
+    : undefined;
 
   const deadlineLabel = kpis.deadlineIsPeriodScoped
     ? "ครบกำหนดส่งในช่วงที่เลือก"
@@ -152,13 +158,34 @@ export default async function DashboardPage({
             className="h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
           />
         </div>
+        <div className="space-y-1.5">
+          <label
+            htmlFor="projectId"
+            className="text-caption font-medium text-text-secondary"
+          >
+            โปรเจค
+          </label>
+          <select
+            id="projectId"
+            name="projectId"
+            defaultValue={projectId ?? ""}
+            className="h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none"
+          >
+            <option value="">ทุกโปรเจค</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
+          </select>
+        </div>
         <button
           type="submit"
           className="inline-flex h-10 items-center justify-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white transition-colors hover:bg-primary-600"
         >
           กรองข้อมูล
         </button>
-        {hasRange && (
+        {hasFilter && (
           <Link
             href="/dashboard"
             className="text-body-sm font-medium text-text-secondary hover:text-text-primary hover:underline"
@@ -167,10 +194,17 @@ export default async function DashboardPage({
           </Link>
         )}
         <span className="ml-auto text-caption text-text-secondary">
-          {hasRange
-            ? `แสดงข้อมูล${from ? ` ตั้งแต่ ${dateFmtTh.format(from)}` : ""}${
-                to ? ` ถึง ${dateFmtTh.format(to)}` : ""
-              }`
+          {hasFilter
+            ? [
+                selectedProject ? `โปรเจค: ${selectedProject.name}` : null,
+                from || to
+                  ? `${from ? `ตั้งแต่ ${dateFmtTh.format(from)}` : ""}${
+                      to ? ` ถึง ${dateFmtTh.format(to)}` : ""
+                    }`
+                  : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
             : "แสดงข้อมูลทั้งหมด"}
         </span>
       </form>
