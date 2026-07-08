@@ -5,10 +5,12 @@
 export function MetricCard({
   label,
   value,
+  sub,
   tone = "navy",
 }: {
   label: string;
   value: string;
+  sub?: string;
   tone?: "navy" | "green" | "orange";
 }) {
   const valueColor =
@@ -25,6 +27,9 @@ export function MetricCard({
       <div className={`mt-2 text-h1 font-bold tabular-nums ${valueColor}`}>
         {value}
       </div>
+      {sub && (
+        <div className="mt-1 text-caption text-text-secondary">{sub}</div>
+      )}
     </div>
   );
 }

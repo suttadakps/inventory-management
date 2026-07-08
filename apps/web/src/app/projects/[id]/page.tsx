@@ -66,6 +66,8 @@ export default async function ProjectDetailPage({
   ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
+  const profit = value - project.actualCost;
+  const margin = value > 0 ? (profit / value) * 100 : 0;
 
   // Fall back to the current status when there is no recorded history yet.
   const timeline =
@@ -134,7 +136,7 @@ export default async function ProjectDetailPage({
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <MetricCard label="มูลค่างาน" value={formatBaht(value, true)} />
           <MetricCard
             label="รับแล้ว"
@@ -145,6 +147,12 @@ export default async function ProjectDetailPage({
             label="ค้างรับ"
             value={formatBaht(outstanding, true)}
             tone="orange"
+          />
+          <MetricCard
+            label="กำไร"
+            value={formatBaht(profit, true)}
+            sub={`${Math.round(margin)}% margin`}
+            tone={profit >= 0 ? "green" : "orange"}
           />
           <MetricCard label="เริ่มงาน" value={fmtDate(project.startDate)} />
           <MetricCard label="ส่งมอบ" value={fmtDate(project.endDate)} />
@@ -237,6 +245,17 @@ export default async function ProjectDetailPage({
               <dt className="text-text-secondary">ต้นทุนจริง</dt>
               <dd className="tabular-nums text-text-primary">
                 {formatBaht(project.actualCost, true)}
+              </dd>
+            </div>
+            <div className="flex items-center justify-between border-t border-[#f0ece2] pt-3 font-semibold">
+              <dt className="text-text-primary">กำไร</dt>
+              <dd
+                className={`tabular-nums ${profit >= 0 ? "text-success" : "text-accent-600"}`}
+              >
+                {formatBaht(profit, true)}{" "}
+                <span className="font-normal text-caption text-text-secondary">
+                  ({Math.round(margin)}%)
+                </span>
               </dd>
             </div>
           </dl>
