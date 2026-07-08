@@ -9,6 +9,7 @@ import {
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
+import { ProjectFilterBar } from "@/components/ui/ProjectFilterBar";
 import { CostForm } from "@/components/costs/CostForm";
 import { CostDeleteButton } from "@/components/costs/CostDeleteButton";
 import { formatBaht } from "@/lib/format";
@@ -21,14 +22,25 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
 });
 
-export default async function CostsPage() {
+export default async function CostsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
   const user = await requireUser();
+  const sp = await searchParams;
   const [rows, projects] = await Promise.all([
     listExpenses(user),
     listProjects(user, {}),
   ]);
   const canManage = canManageCosts(user.role);
+
+  // Summary cards are always computed from the full (unfiltered) list; only
+  // the table below narrows to the selected project.
   const total = rows.reduce((s, r) => s + r.amount, 0);
+  const visibleRows = sp.projectId
+    ? rows.filter((r) => r.projectId === sp.projectId)
+    : rows;
 
   return (
     <div className="space-y-5">
@@ -43,9 +55,15 @@ export default async function CostsPage() {
 
       {canManage && <CostForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />}
 
-      {rows.length === 0 ? (
+      <ProjectFilterBar
+        basePath="/costs"
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        selectedId={sp.projectId}
+      />
+
+      {visibleRows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#ddd6c8] bg-white p-10 text-center text-body-sm text-text-secondary">
-          ยังไม่มีการบันทึกต้นทุน
+          {sp.projectId ? "ไม่มีรายการต้นทุนของโปรเจคนี้" : "ยังไม่มีการบันทึกต้นทุน"}
         </div>
       ) : (
         <ContentCard className="overflow-x-auto">
@@ -61,7 +79,7 @@ export default async function CostsPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0ece2]">
-              {rows.map((r) => (
+              {visibleRows.map((r) => (
                 <tr key={r.id} className="hover:bg-[#faf8f3]">
                   <td className="px-6 py-4 align-top text-text-primary">
                     {r.projectName ?? "ส่วนกลาง"}

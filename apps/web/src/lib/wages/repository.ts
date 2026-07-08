@@ -26,6 +26,7 @@ export type WageRow = {
   id: string;
   workerName: string;
   roleLabel: string | null;
+  projectId: string | null;
   projectName: string | null;
   daysWorked: number;
   amount: number;
@@ -56,6 +57,7 @@ export async function listWages(user: CurrentUser): Promise<WageSummary> {
     id: w.id,
     workerName: w.workerName,
     roleLabel: w.roleLabel,
+    projectId: w.projectId,
     projectName: w.project?.name ?? null,
     daysWorked: w.daysWorked.toNumber(),
     amount: w.amount.toNumber(),

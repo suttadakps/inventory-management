@@ -25,6 +25,7 @@ export function canManageCosts(role: Role): boolean {
 
 export type ExpenseRow = {
   id: string;
+  projectId: string | null;
   projectName: string | null;
   category: string;
   description: string | null;
@@ -60,6 +61,7 @@ export async function listExpenses(user: CurrentUser): Promise<ExpenseRow[]> {
 
   return rows.map((e) => ({
     id: e.id,
+    projectId: e.projectId,
     projectName: e.project?.name ?? null,
     category: e.category,
     description: e.description,

@@ -6,6 +6,7 @@ import { listWages, canManageWages } from "@/lib/wages/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { ProjectFilterBar } from "@/components/ui/ProjectFilterBar";
 import { WageForm } from "@/components/wages/WageForm";
 import { WageActions } from "@/components/wages/WageActions";
 import { formatBaht } from "@/lib/format";
@@ -23,13 +24,24 @@ const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
   paid: { label: "จ่ายแล้ว", tone: "green" },
 };
 
-export default async function WagesPage() {
+export default async function WagesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ projectId?: string }>;
+}) {
   const user = await requireUser();
+  const sp = await searchParams;
   const [data, projects] = await Promise.all([
     listWages(user),
     listProjects(user, {}),
   ]);
   const canManage = canManageWages(user.role);
+
+  // Summary cards always reflect the full (unfiltered) data; only the table
+  // below narrows to the selected project.
+  const visibleRows = sp.projectId
+    ? data.rows.filter((r) => r.projectId === sp.projectId)
+    : data.rows;
 
   return (
     <div className="space-y-5">
@@ -51,9 +63,15 @@ export default async function WagesPage() {
         <WageForm projects={projects.map((p) => ({ id: p.id, name: p.name }))} />
       )}
 
-      {data.rows.length === 0 ? (
+      <ProjectFilterBar
+        basePath="/wages"
+        projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+        selectedId={sp.projectId}
+      />
+
+      {visibleRows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-[#ddd6c8] bg-white p-10 text-center text-body-sm text-text-secondary">
-          ยังไม่มีรายการค่าแรง
+          {sp.projectId ? "ไม่มีรายการค่าแรงของโปรเจคนี้" : "ยังไม่มีรายการค่าแรง"}
         </div>
       ) : (
         <ContentCard className="overflow-x-auto">
@@ -70,7 +88,7 @@ export default async function WagesPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0ece2]">
-              {data.rows.map((w) => {
+              {visibleRows.map((w) => {
                 const st = STATUS_TH[w.status] ?? {
                   label: w.status,
                   tone: "gray" as StatusTone,
