@@ -578,7 +578,7 @@ export async function addProjectNote(
 export type ProjectTriggerItem = {
   id: string;
   message: string;
-  triggerDate: string;
+  triggerAt: string;
   sentAt: string | null;
 };
 
@@ -587,13 +587,13 @@ export async function listProjectTriggers(
 ): Promise<ProjectTriggerItem[]> {
   const rows = await prisma.projectTrigger.findMany({
     where: { projectId },
-    orderBy: { triggerDate: "asc" },
+    orderBy: { triggerAt: "asc" },
     take: 100,
   });
   return rows.map((r) => ({
     id: r.id,
     message: r.message,
-    triggerDate: r.triggerDate.toISOString(),
+    triggerAt: r.triggerAt.toISOString(),
     sentAt: r.sentAt ? r.sentAt.toISOString() : null,
   }));
 }
@@ -601,11 +601,11 @@ export async function listProjectTriggers(
 export async function addProjectTrigger(
   projectId: string,
   message: string,
-  triggerDate: Date,
+  triggerAt: Date,
   createdById: string
 ): Promise<void> {
   await prisma.projectTrigger.create({
-    data: { projectId, message, triggerDate, createdById },
+    data: { projectId, message, triggerAt, createdById },
   });
 }
 
@@ -624,10 +624,10 @@ export type DueTriggerItem = {
   projectName: string;
 };
 
-/** Triggers whose date has arrived and haven't been sent to LINE yet. */
+/** Triggers whose scheduled time has arrived and haven't been sent to LINE yet. */
 export async function listDueTriggers(asOf: Date): Promise<DueTriggerItem[]> {
   const rows = await prisma.projectTrigger.findMany({
-    where: { sentAt: null, triggerDate: { lte: asOf } },
+    where: { sentAt: null, triggerAt: { lte: asOf } },
     include: { project: { select: { name: true } } },
   });
   return rows.map((r) => ({

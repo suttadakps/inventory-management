@@ -1,0 +1,17 @@
+name: LINE project trigger reminders
+
+on:
+  schedule:
+    # Vercel Hobby cron only fires once/day; this fills the gap so reminders
+    # go out close to their scheduled time (Asia/Bangkok).
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call /api/cron/triggers
+        run: |
+          curl -sf -X GET "https://inventory-management-web-ten.vercel.app/api/cron/triggers" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"

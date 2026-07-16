@@ -10,10 +10,14 @@ import {
 import type { ProjectTriggerItem } from "@/lib/projects/repository";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
-const dateFmt = new Intl.DateTimeFormat("en-US", {
+const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
   year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hour12: false,
+  timeZone: "Asia/Bangkok",
 });
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
@@ -31,6 +35,7 @@ export function ProjectTriggers({
   const [, startTransition] = useTransition();
   const [message, setMessage] = useState("");
   const [date, setDate] = useState(todayStr());
+  const [time, setTime] = useState("09:00");
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
@@ -44,10 +49,12 @@ export function ProjectTriggers({
       const res = await addProjectTriggerAction(projectId, {
         message: body,
         date,
+        time,
       });
       if (res.ok) {
         setMessage("");
         setDate(todayStr());
+        setTime("09:00");
         router.refresh();
       } else {
         setError(res.error);
@@ -81,6 +88,12 @@ export function ProjectTriggers({
               onChange={(e) => setDate(e.target.value)}
               className={inputCls}
             />
+            <input
+              type="time"
+              value={time}
+              onChange={(e) => setTime(e.target.value)}
+              className={inputCls}
+            />
             <button
               type="button"
               onClick={submit}
@@ -107,7 +120,7 @@ export function ProjectTriggers({
                   {t.message}
                 </span>
                 <span className="ml-2 text-caption text-text-secondary">
-                  {dateFmt.format(new Date(t.triggerDate))}
+                  {dateTimeFmt.format(new Date(t.triggerAt))}
                 </span>
                 <StatusBadge
                   tone={t.sentAt ? "green" : "tan"}

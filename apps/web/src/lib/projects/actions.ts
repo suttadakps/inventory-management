@@ -162,10 +162,10 @@ export async function addProjectNoteAction(
   return { ok: true };
 }
 
-/** Add a custom LINE reminder (message + date) to a project. */
+/** Add a custom LINE reminder (message + date + time) to a project. */
 export async function addProjectTriggerAction(
   projectId: string,
-  input: { message: string; date: string }
+  input: { message: string; date: string; time: string }
 ): Promise<InlineResult> {
   const user = await requireUser();
   if (!(await ensureCanEditProject(user, projectId)))
@@ -174,11 +174,13 @@ export async function addProjectTriggerAction(
   const message = input.message.trim();
   if (!message) return { ok: false, error: "กรุณากรอกข้อความแจ้งเตือน" };
 
-  const triggerDate = new Date(input.date);
-  if (Number.isNaN(triggerDate.getTime()))
-    return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
+  // Interpreted as Bangkok local time (UTC+7) regardless of server timezone.
+  const time = input.time || "00:00";
+  const triggerAt = new Date(`${input.date}T${time}:00+07:00`);
+  if (Number.isNaN(triggerAt.getTime()))
+    return { ok: false, error: "กรุณาเลือกวันที่และเวลาให้ถูกต้อง" };
 
-  await repo.addProjectTrigger(projectId, message, triggerDate, user.id);
+  await repo.addProjectTrigger(projectId, message, triggerAt, user.id);
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
