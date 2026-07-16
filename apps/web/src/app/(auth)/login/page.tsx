@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { LoginForm } from "@/components/auth/LoginForm";
 
 export const metadata: Metadata = { title: "เข้าสู่ระบบ · ARTIVERGES NEXT" };
@@ -14,17 +13,6 @@ export default function LoginPage() {
         </p>
       </div>
       <LoginForm />
-      <div className="pt-4 border-t border-border">
-        <p className="text-center text-body-sm text-text-secondary">
-          ยังไม่มีบัญชี?{" "}
-          <Link
-            href="/auth/signup"
-            className="font-medium text-primary-600 hover:text-primary-700 hover:underline"
-          >
-            สมัครสมาชิก
-          </Link>
-        </p>
-      </div>
     </div>
   );
 }
