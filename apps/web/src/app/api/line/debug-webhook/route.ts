@@ -9,9 +9,14 @@ import { NextResponse } from "next/server";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: Request) {
+  const raw = await req.text();
+  // console.error surfaces reliably in Vercel's runtime log search, unlike
+  // console.log which is often dropped from indexed results.
+  console.error("[line-debug-webhook] raw body:", raw);
+
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(raw);
   } catch {
     return NextResponse.json({ ok: true });
   }
@@ -21,8 +26,9 @@ export async function POST(req: Request) {
       ? (body as { events: unknown[] }).events
       : [];
 
+  console.error(`[line-debug-webhook] ${events.length} event(s)`);
   for (const event of events) {
-    console.log("[line-debug-webhook] event:", JSON.stringify(event));
+    console.error("[line-debug-webhook] event:", JSON.stringify(event));
   }
 
   // LINE requires a fast 200 response regardless of content.
