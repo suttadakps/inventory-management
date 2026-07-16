@@ -13,6 +13,7 @@ import {
   listStatusHistory,
   listProjectNotes,
   listProjectPayments,
+  listProjectTriggers,
 } from "@/lib/projects/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
@@ -20,6 +21,7 @@ import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { ProjectProgressControl } from "@/components/projects/ProjectProgressControl";
 import { ProjectNotes } from "@/components/projects/ProjectNotes";
 import { ProjectPayments } from "@/components/projects/ProjectPayments";
+import { ProjectTriggers } from "@/components/projects/ProjectTriggers";
 import {
   ArchiveProjectButton,
   RestoreProjectButton,
@@ -58,11 +60,12 @@ export default async function ProjectDetailPage({
   const project = await getProjectForUser(user, id);
   if (!project) notFound();
 
-  const [received, history, notes, payments] = await Promise.all([
+  const [received, history, notes, payments, triggers] = await Promise.all([
     sumProjectIncoming(id),
     listStatusHistory(id),
     listProjectNotes(id),
     listProjectPayments(id),
+    listProjectTriggers(id),
   ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
@@ -176,6 +179,18 @@ export default async function ProjectDetailPage({
         <ProjectPayments
           projectId={project.id}
           payments={payments}
+          canEdit={canEdit && !project.archived}
+        />
+      </ContentCard>
+
+      {/* LINE trigger reminders */}
+      <ContentCard className="p-6">
+        <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+          การแจ้งเตือน
+        </h3>
+        <ProjectTriggers
+          projectId={project.id}
+          triggers={triggers}
           canEdit={canEdit && !project.archived}
         />
       </ContentCard>

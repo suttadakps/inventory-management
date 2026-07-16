@@ -162,6 +162,40 @@ export async function addProjectNoteAction(
   return { ok: true };
 }
 
+/** Add a custom LINE reminder (message + date) to a project. */
+export async function addProjectTriggerAction(
+  projectId: string,
+  input: { message: string; date: string }
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const message = input.message.trim();
+  if (!message) return { ok: false, error: "กรุณากรอกข้อความแจ้งเตือน" };
+
+  const triggerDate = new Date(input.date);
+  if (Number.isNaN(triggerDate.getTime()))
+    return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
+
+  await repo.addProjectTrigger(projectId, message, triggerDate, user.id);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/** Delete a LINE reminder from a project. */
+export async function deleteProjectTriggerAction(
+  projectId: string,
+  triggerId: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.deleteProjectTrigger(triggerId, projectId);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
 /** Quick-create a project with just a name; details are added later on edit. */
 export async function createProjectQuick(formData: FormData): Promise<void> {
   const user = await requireUser();

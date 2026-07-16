@@ -573,6 +573,77 @@ export async function addProjectNote(
   });
 }
 
+// ---- LINE trigger reminders (การแจ้งเตือน) ----------------------------------
+
+export type ProjectTriggerItem = {
+  id: string;
+  message: string;
+  triggerDate: string;
+  sentAt: string | null;
+};
+
+export async function listProjectTriggers(
+  projectId: string
+): Promise<ProjectTriggerItem[]> {
+  const rows = await prisma.projectTrigger.findMany({
+    where: { projectId },
+    orderBy: { triggerDate: "asc" },
+    take: 100,
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    message: r.message,
+    triggerDate: r.triggerDate.toISOString(),
+    sentAt: r.sentAt ? r.sentAt.toISOString() : null,
+  }));
+}
+
+export async function addProjectTrigger(
+  projectId: string,
+  message: string,
+  triggerDate: Date,
+  createdById: string
+): Promise<void> {
+  await prisma.projectTrigger.create({
+    data: { projectId, message, triggerDate, createdById },
+  });
+}
+
+export async function deleteProjectTrigger(
+  triggerId: string,
+  projectId: string
+): Promise<void> {
+  await prisma.projectTrigger.deleteMany({
+    where: { id: triggerId, projectId },
+  });
+}
+
+export type DueTriggerItem = {
+  id: string;
+  message: string;
+  projectName: string;
+};
+
+/** Triggers whose date has arrived and haven't been sent to LINE yet. */
+export async function listDueTriggers(asOf: Date): Promise<DueTriggerItem[]> {
+  const rows = await prisma.projectTrigger.findMany({
+    where: { sentAt: null, triggerDate: { lte: asOf } },
+    include: { project: { select: { name: true } } },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    message: r.message,
+    projectName: r.project.name,
+  }));
+}
+
+export async function markTriggerSent(triggerId: string): Promise<void> {
+  await prisma.projectTrigger.update({
+    where: { id: triggerId },
+    data: { sentAt: new Date() },
+  });
+}
+
 // ---- Incoming payments (การรับเงิน) -----------------------------------------
 
 export type ProjectPaymentItem = {
