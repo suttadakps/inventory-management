@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -16,8 +17,14 @@ export type CurrentUser = {
   role: Role;
 };
 
-/** Returns the authenticated user + profile, or null if not signed in. */
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+/**
+ * Returns the authenticated user + profile, or null if not signed in.
+ * Wrapped in React's `cache()` — every page currently calls this both from
+ * its layout (SidebarShell) and again from the page itself; without this,
+ * that's 2x the Supabase auth + profile round trips on every navigation.
+ * `cache()` memoizes per request, so both call sites share one result.
+ */
+export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const supabase = await createSupabaseServerClient();
 
   const {
@@ -40,7 +47,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     fullName: profile?.full_name ?? null,
     role,
   };
-}
+});
 
 /** Requires a signed-in user; redirects to /login otherwise. */
 export async function requireUser(): Promise<CurrentUser> {
