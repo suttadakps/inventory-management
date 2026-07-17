@@ -69,7 +69,7 @@ export default async function ProjectDetailPage({
   const timeline =
     history.length > 0
       ? history
-      : [{ status: project.status, date: project.updatedAt }];
+      : [{ id: null, status: project.status, date: project.updatedAt }];
 
   const isManager = project.managerId === user.id;
   const isAssignedEngineer = project.siteEngineerId === user.id;
@@ -291,6 +291,7 @@ export default async function ProjectDetailPage({
             projectId={project.id}
             notes={notes}
             canAdd={!project.archived}
+            canEdit={canEdit && !project.archived}
           />
         </ContentCard>
       </div>

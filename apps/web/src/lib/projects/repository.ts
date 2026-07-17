@@ -527,7 +527,7 @@ export async function setProjectStatus(
   ]);
 }
 
-export type StatusHistoryItem = { status: string; date: string };
+export type StatusHistoryItem = { id: string | null; status: string; date: string };
 
 export async function listStatusHistory(
   projectId: string
@@ -537,7 +537,11 @@ export async function listStatusHistory(
     orderBy: { createdAt: "desc" },
     take: 20,
   });
-  return rows.map((r) => ({ status: r.status, date: r.createdAt.toISOString() }));
+  return rows.map((r) => ({
+    id: r.id,
+    status: r.status,
+    date: r.createdAt.toISOString(),
+  }));
 }
 
 /** Log a status/date as history without changing the project's live status. */
@@ -549,6 +553,27 @@ export async function addStatusHistoryEntry(
 ): Promise<void> {
   await prisma.projectStatusHistory.create({
     data: { projectId, status, changedById: actorId, createdAt: date },
+  });
+}
+
+export async function updateStatusHistoryEntry(
+  entryId: string,
+  projectId: string,
+  status: string,
+  date: Date
+): Promise<void> {
+  await prisma.projectStatusHistory.updateMany({
+    where: { id: entryId, projectId },
+    data: { status, createdAt: date },
+  });
+}
+
+export async function deleteStatusHistoryEntry(
+  entryId: string,
+  projectId: string
+): Promise<void> {
+  await prisma.projectStatusHistory.deleteMany({
+    where: { id: entryId, projectId },
   });
 }
 
@@ -623,6 +648,24 @@ export async function addProjectNote(
   await prisma.projectNote.create({
     data: { projectId, body, authorId: author.id, authorName: author.name },
   });
+}
+
+export async function updateProjectNote(
+  noteId: string,
+  projectId: string,
+  body: string
+): Promise<void> {
+  await prisma.projectNote.updateMany({
+    where: { id: noteId, projectId },
+    data: { body },
+  });
+}
+
+export async function deleteProjectNote(
+  noteId: string,
+  projectId: string
+): Promise<void> {
+  await prisma.projectNote.deleteMany({ where: { id: noteId, projectId } });
 }
 
 // ---- LINE trigger reminders (การแจ้งเตือน) ----------------------------------

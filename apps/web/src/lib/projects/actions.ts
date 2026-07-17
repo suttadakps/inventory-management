@@ -102,6 +102,40 @@ export async function addStatusHistoryAction(
   return { ok: true };
 }
 
+/** Edit a timeline entry's status/date. */
+export async function updateStatusHistoryAction(
+  projectId: string,
+  entryId: string,
+  input: { status: string; date: string }
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  const status = input.status.trim();
+  if (!status) return { ok: false, error: "กรุณากรอกสถานะ" };
+  const date = new Date(input.date);
+  if (Number.isNaN(date.getTime()))
+    return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
+  await repo.updateStatusHistoryEntry(entryId, projectId, status, date);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/calendar");
+  return { ok: true };
+}
+
+/** Delete a timeline entry. */
+export async function deleteStatusHistoryAction(
+  projectId: string,
+  entryId: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.deleteStatusHistoryEntry(entryId, projectId);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/calendar");
+  return { ok: true };
+}
+
 const PAYMENT_METHODS = [
   "cash",
   "bank_transfer",
@@ -177,6 +211,35 @@ export async function addProjectNoteAction(
     id: user.id,
     name: user.fullName ?? user.email,
   });
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/** Edit a daily-log note. */
+export async function updateProjectNoteAction(
+  projectId: string,
+  noteId: string,
+  body: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  const text = body.trim();
+  if (!text) return { ok: false, error: "กรุณากรอกข้อความ" };
+  await repo.updateProjectNote(noteId, projectId, text);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/** Delete a daily-log note. */
+export async function deleteProjectNoteAction(
+  projectId: string,
+  noteId: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.deleteProjectNote(noteId, projectId);
   revalidatePath(`/projects/${projectId}`);
   return { ok: true };
 }
