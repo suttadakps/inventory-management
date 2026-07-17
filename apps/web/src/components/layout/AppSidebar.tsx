@@ -18,6 +18,7 @@ type Item = { label: string; href?: string };
 const NAV: Item[] = [
   { label: "Dashboard", href: "/dashboard" },
   { label: "โปรเจค", href: "/projects" },
+  { label: "ปฏิทิน", href: "/calendar" },
   { label: "BOQ / ใบเสนอราคา", href: "/boq" },
   { label: "เบิกเงิน", href: "/disbursements" },
   { label: "บันทึกต้นทุน", href: "/costs" },

@@ -18,10 +18,12 @@ import {
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
+import { STATUS_TH } from "@/lib/projects/statusLabels";
 import { ProjectProgressControl } from "@/components/projects/ProjectProgressControl";
 import { ProjectNotes } from "@/components/projects/ProjectNotes";
 import { ProjectPayments } from "@/components/projects/ProjectPayments";
 import { ProjectTriggers } from "@/components/projects/ProjectTriggers";
+import { ProjectStatusTimeline } from "@/components/projects/ProjectStatusTimeline";
 import {
   ArchiveProjectButton,
   RestoreProjectButton,
@@ -35,15 +37,6 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
   year: "numeric",
 });
-
-const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
-  planning: { label: "วางแผน", tone: "tan" },
-  active: { label: "กำลังดำเนินการ", tone: "navy" },
-  on_hold: { label: "พักงาน", tone: "amber" },
-  completed: { label: "เสร็จสิ้น", tone: "green" },
-  warranty: { label: "รับประกัน", tone: "navy" },
-  closed: { label: "ปิดงาน", tone: "gray" },
-};
 
 function fmtDate(d: string | null): string {
   return d ? dateFmt.format(new Date(d)) : "—";
@@ -283,27 +276,11 @@ export default async function ProjectDetailPage({
           <h3 className="mb-4 text-h3 font-semibold text-text-primary">
             Timeline สถานะ
           </h3>
-          <ul className="space-y-4">
-            {timeline.map((h, idx) => {
-              const t = STATUS_TH[h.status] ?? {
-                label: h.status,
-                tone: "gray" as StatusTone,
-              };
-              return (
-                <li key={idx} className="flex gap-3">
-                  <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary-700" />
-                  <div>
-                    <div className="font-medium text-text-primary">
-                      {t.label}
-                    </div>
-                    <div className="text-caption text-text-secondary">
-                      {fmtDate(h.date)}
-                    </div>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+          <ProjectStatusTimeline
+            projectId={project.id}
+            history={timeline}
+            canEdit={canEdit && !project.archived}
+          />
         </ContentCard>
 
         <ContentCard className="p-6">

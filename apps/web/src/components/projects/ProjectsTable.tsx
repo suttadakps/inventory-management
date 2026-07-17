@@ -1,6 +1,8 @@
 import Link from "next/link";
 
 import type { ProjectListItem } from "@/lib/projects/repository";
+import { STATUS_TH } from "@/lib/projects/statusLabels";
+import { StatusBadge } from "@/components/ui/StatusBadge";
 
 const baht0 = new Intl.NumberFormat("th-TH", {
   style: "currency",
@@ -16,15 +18,6 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 function baht(value: number | null): string {
   return value === null ? "—" : baht0.format(value);
 }
-
-const STATUS_TH: Record<string, { label: string; cls: string }> = {
-  planning: { label: "วางแผน", cls: "bg-[#efe9dc] text-[#8a7a55]" },
-  active: { label: "กำลังดำเนินการ", cls: "bg-[#e3ecf7] text-primary-700" },
-  on_hold: { label: "พักงาน", cls: "bg-[#fbe4cf] text-[#a9791b]" },
-  completed: { label: "เสร็จสิ้น", cls: "bg-[#dcefe4] text-success" },
-  warranty: { label: "รับประกัน", cls: "bg-[#e3ecf7] text-primary-700" },
-  closed: { label: "ปิดงาน", cls: "bg-[#ece9e2] text-neutral" },
-};
 
 export function ProjectsTable({ items }: { items: ProjectListItem[] }) {
   if (items.length === 0) {
@@ -53,9 +46,9 @@ export function ProjectsTable({ items }: { items: ProjectListItem[] }) {
         </thead>
         <tbody className="divide-y divide-[#f0ece2]">
           {items.map((p) => {
-            const st = STATUS_TH[p.status] ?? {
+            const st = STATUS_TH[p.status as keyof typeof STATUS_TH] ?? {
               label: p.status,
-              cls: "bg-[#ece9e2] text-neutral",
+              tone: "gray" as const,
             };
             return (
               <tr key={p.id} className="hover:bg-[#faf8f3]">
@@ -84,11 +77,7 @@ export function ProjectsTable({ items }: { items: ProjectListItem[] }) {
                   {p.endDate ? dateFmt.format(new Date(p.endDate)) : "—"}
                 </td>
                 <td className="px-6 py-4 align-top">
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-caption font-medium ${st.cls}`}
-                  >
-                    {st.label}
-                  </span>
+                  <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
                 </td>
               </tr>
             );

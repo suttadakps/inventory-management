@@ -83,6 +83,30 @@ export async function updateProjectStatusAction(
   return { ok: true };
 }
 
+/** Log a status/date to the timeline without changing the live status. */
+export async function addStatusHistoryAction(
+  projectId: string,
+  input: { status: string; date: string }
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  if (!(PROJECT_STATUSES as readonly string[]).includes(input.status))
+    return { ok: false, error: "สถานะไม่ถูกต้อง" };
+  const date = new Date(input.date);
+  if (Number.isNaN(date.getTime()))
+    return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
+  await repo.addStatusHistoryEntry(
+    projectId,
+    input.status as ProjectStatus,
+    date,
+    user.id
+  );
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/calendar");
+  return { ok: true };
+}
+
 const PAYMENT_METHODS = [
   "cash",
   "bank_transfer",

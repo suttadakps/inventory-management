@@ -540,6 +540,58 @@ export async function listStatusHistory(
   return rows.map((r) => ({ status: r.status, date: r.createdAt.toISOString() }));
 }
 
+/** Log a status/date as history without changing the project's live status. */
+export async function addStatusHistoryEntry(
+  projectId: string,
+  status: ProjectStatus,
+  date: Date,
+  actorId: string
+): Promise<void> {
+  await prisma.projectStatusHistory.create({
+    data: { projectId, status, changedById: actorId, createdAt: date },
+  });
+}
+
+export type CalendarEntry = {
+  id: string;
+  projectId: string;
+  projectName: string;
+  status: ProjectStatus;
+  date: string;
+};
+
+/** Status-history entries across every project the user can see (ปฏิทินโปรเจค). */
+export async function listCalendarEntries(
+  user: CurrentUser,
+  opts: { projectId?: string; from?: Date; to?: Date } = {}
+): Promise<CalendarEntry[]> {
+  const filters: Prisma.ProjectStatusHistoryWhereInput[] = [
+    { project: scopeWhere(user) },
+  ];
+  if (opts.projectId) filters.push({ projectId: opts.projectId });
+  if (opts.from || opts.to) {
+    filters.push({
+      createdAt: {
+        ...(opts.from ? { gte: opts.from } : {}),
+        ...(opts.to ? { lte: opts.to } : {}),
+      },
+    });
+  }
+
+  const rows = await prisma.projectStatusHistory.findMany({
+    where: { AND: filters },
+    include: { project: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+  return rows.map((r) => ({
+    id: r.id,
+    projectId: r.projectId,
+    projectName: r.project.name,
+    status: r.status,
+    date: r.createdAt.toISOString(),
+  }));
+}
+
 export type ProjectNoteItem = {
   id: string;
   body: string;
