@@ -16,7 +16,7 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
 const STATUS_KEYS = Object.keys(STATUS_TH) as (keyof typeof STATUS_TH)[];
-const DEFAULT_STATUS: string = STATUS_KEYS[0] ?? "planning";
+const STATUS_SUGGESTIONS_ID = "project-status-suggestions";
 
 export function ProjectStatusTimeline({
   projectId,
@@ -29,15 +29,24 @@ export function ProjectStatusTimeline({
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
-  const [status, setStatus] = useState<string>(DEFAULT_STATUS);
+  const [status, setStatus] = useState("");
   const [date, setDate] = useState(todayStr());
   const [error, setError] = useState<string | null>(null);
 
   const submit = () => {
+    const value = status.trim();
+    if (!value) {
+      setError("กรุณากรอกสถานะ");
+      return;
+    }
     setError(null);
     startTransition(async () => {
-      const res = await addStatusHistoryAction(projectId, { status, date });
+      const res = await addStatusHistoryAction(projectId, {
+        status: value,
+        date,
+      });
       if (res.ok) {
+        setStatus("");
         setDate(todayStr());
         router.refresh();
       } else {
@@ -54,17 +63,18 @@ export function ProjectStatusTimeline({
       {canEdit && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-2">
-            <select
+            <input
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className={inputCls}
-            >
+              list={STATUS_SUGGESTIONS_ID}
+              placeholder="สถานะ…"
+              className={`${inputCls} min-w-32 flex-1`}
+            />
+            <datalist id={STATUS_SUGGESTIONS_ID}>
               {STATUS_KEYS.map((key) => (
-                <option key={key} value={key}>
-                  {STATUS_TH[key].label}
-                </option>
+                <option key={key} value={STATUS_TH[key].label} />
               ))}
-            </select>
+            </datalist>
             <input
               type="date"
               value={date}

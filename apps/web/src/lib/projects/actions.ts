@@ -91,17 +91,12 @@ export async function addStatusHistoryAction(
   const user = await requireUser();
   if (!(await ensureCanEditProject(user, projectId)))
     return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
-  if (!(PROJECT_STATUSES as readonly string[]).includes(input.status))
-    return { ok: false, error: "สถานะไม่ถูกต้อง" };
+  const status = input.status.trim();
+  if (!status) return { ok: false, error: "กรุณากรอกสถานะ" };
   const date = new Date(input.date);
   if (Number.isNaN(date.getTime()))
     return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
-  await repo.addStatusHistoryEntry(
-    projectId,
-    input.status as ProjectStatus,
-    date,
-    user.id
-  );
+  await repo.addStatusHistoryEntry(projectId, status, date, user.id);
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/calendar");
   return { ok: true };

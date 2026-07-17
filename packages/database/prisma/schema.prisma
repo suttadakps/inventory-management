@@ -101,12 +101,12 @@ model Project {
 }
 
 model ProjectStatusHistory {
-  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String        @map("project_id") @db.Uuid
-  status      ProjectStatus
-  changedById String?       @map("changed_by") @db.Uuid
-  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String   @map("project_id") @db.Uuid
+  status      String
+  changedById String?  @map("changed_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@index([projectId, createdAt])
   @@map("project_status_history")

@@ -527,7 +527,7 @@ export async function setProjectStatus(
   ]);
 }
 
-export type StatusHistoryItem = { status: ProjectStatus; date: string };
+export type StatusHistoryItem = { status: string; date: string };
 
 export async function listStatusHistory(
   projectId: string
@@ -543,7 +543,7 @@ export async function listStatusHistory(
 /** Log a status/date as history without changing the project's live status. */
 export async function addStatusHistoryEntry(
   projectId: string,
-  status: ProjectStatus,
+  status: string,
   date: Date,
   actorId: string
 ): Promise<void> {
@@ -556,7 +556,7 @@ export type CalendarEntry = {
   id: string;
   projectId: string;
   projectName: string;
-  status: ProjectStatus;
+  status: string;
   date: string;
 };
 

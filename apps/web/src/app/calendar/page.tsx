@@ -142,7 +142,7 @@ export default async function CalendarPage({
                   </div>
                 )}
                 {dayEntries.slice(0, MAX_CHIPS_PER_DAY).map((e) => {
-                  const st = STATUS_TH[e.status] ?? {
+                  const st = STATUS_TH[e.status as keyof typeof STATUS_TH] ?? {
                     label: e.status,
                     tone: "gray" as const,
                   };
