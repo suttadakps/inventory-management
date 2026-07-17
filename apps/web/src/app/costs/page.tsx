@@ -35,21 +35,24 @@ export default async function CostsPage({
   ]);
   const canManage = canManageCosts(user.role);
 
-  // Summary cards are always computed from the full (unfiltered) list; only
-  // the table below narrows to the selected project.
-  const total = rows.reduce((s, r) => s + r.amount, 0);
+  // Summary cards recompute from the filtered rows, so they always match
+  // what the table below is showing (with no filter, that's everything).
   const visibleRows = sp.projectId
     ? rows.filter((r) => r.projectId === sp.projectId)
     : rows;
+  const visibleTotal = visibleRows.reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <MetricCard label="ต้นทุนรวม" value={formatBaht(total, true)} />
-        <MetricCard label="จำนวนรายการ" value={String(rows.length)} />
+        <MetricCard label="ต้นทุนรวม" value={formatBaht(visibleTotal, true)} />
+        <MetricCard label="จำนวนรายการ" value={String(visibleRows.length)} />
         <MetricCard
           label="เฉลี่ยต่อรายการ"
-          value={formatBaht(rows.length ? total / rows.length : 0, true)}
+          value={formatBaht(
+            visibleRows.length ? visibleTotal / visibleRows.length : 0,
+            true
+          )}
         />
       </div>
 
