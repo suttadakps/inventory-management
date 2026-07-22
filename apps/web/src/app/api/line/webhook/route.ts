@@ -1,7 +1,12 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 
-import { markTriggerDone, getProjectTrigger } from "@/lib/projects/repository";
+import {
+  markTriggerDone,
+  getProjectTrigger,
+  addStatusHistoryEntry,
+} from "@/lib/projects/repository";
 import { replyLineMessage } from "@/lib/line/client";
 
 /**
@@ -81,6 +86,14 @@ export async function POST(req: Request) {
       }
 
       await markTriggerDone(id, true);
+      await addStatusHistoryEntry(
+        trigger.projectId,
+        `✅ ${trigger.message}`,
+        new Date(),
+        null
+      );
+      revalidatePath(`/projects/${trigger.projectId}`);
+      revalidatePath("/calendar");
       if (event.replyToken) {
         await replyLineMessage(event.replyToken, "✅ ทำเครื่องหมายเสร็จแล้ว");
       }

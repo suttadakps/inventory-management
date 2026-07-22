@@ -549,7 +549,7 @@ export async function addStatusHistoryEntry(
   projectId: string,
   status: string,
   date: Date,
-  actorId: string
+  actorId: string | null
 ): Promise<void> {
   await prisma.projectStatusHistory.create({
     data: { projectId, status, changedById: actorId, createdAt: date },
@@ -754,6 +754,7 @@ export async function markTriggerDone(
 
 export type ProjectTriggerDetail = {
   id: string;
+  projectId: string;
   message: string;
   doneAt: Date | null;
   projectName: string;
@@ -771,6 +772,7 @@ export async function getProjectTrigger(
   if (!row) return null;
   return {
     id: row.id,
+    projectId: row.projectId,
     message: row.message,
     doneAt: row.doneAt,
     projectName: row.project.name,

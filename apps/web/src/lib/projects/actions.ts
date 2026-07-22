@@ -295,9 +295,16 @@ export async function toggleTriggerDoneAction(
   await repo.markTriggerDone(triggerId, done);
   revalidatePath(`/projects/${projectId}`);
 
-  // Only announce a fresh "not done" -> "done" transition made from the web
-  // (avoids spamming the group on every re-check or on un-checking).
+  // Only react to a fresh "not done" -> "done" transition made from the web
+  // (avoids spamming the group / timeline on every re-check or un-checking).
   if (done && before && !before.doneAt) {
+    await repo.addStatusHistoryEntry(
+      projectId,
+      `✅ ${before.message}`,
+      new Date(),
+      user.id
+    );
+    revalidatePath("/calendar");
     try {
       await sendLineMessage(
         `✅ [${before.projectName}] ${before.message} — เสร็จแล้ว`
