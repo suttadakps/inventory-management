@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextResponse } from "next/server";
 
-import { markTriggerDone } from "@/lib/projects/repository";
+import { markTriggerDone, getProjectTrigger } from "@/lib/projects/repository";
 import { replyLineMessage } from "@/lib/line/client";
 
 /**
@@ -68,6 +68,18 @@ export async function POST(req: Request) {
     if (!id) continue;
 
     try {
+      const trigger = await getProjectTrigger(id);
+      if (!trigger) continue;
+
+      if (trigger.doneAt) {
+        // Already marked — button stays clickable forever (LINE can't edit a
+        // sent message), so keep repeat taps from re-processing/re-spamming.
+        if (event.replyToken) {
+          await replyLineMessage(event.replyToken, "ทำเครื่องหมายไว้แล้วก่อนหน้านี้");
+        }
+        continue;
+      }
+
       await markTriggerDone(id, true);
       if (event.replyToken) {
         await replyLineMessage(event.replyToken, "✅ ทำเครื่องหมายเสร็จแล้ว");

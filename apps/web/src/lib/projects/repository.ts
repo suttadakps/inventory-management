@@ -752,6 +752,31 @@ export async function markTriggerDone(
   });
 }
 
+export type ProjectTriggerDetail = {
+  id: string;
+  message: string;
+  doneAt: Date | null;
+  projectName: string;
+};
+
+/** Single trigger with its current done state + project name, for the
+ * idempotency/notify checks around markTriggerDone. */
+export async function getProjectTrigger(
+  triggerId: string
+): Promise<ProjectTriggerDetail | null> {
+  const row = await prisma.projectTrigger.findUnique({
+    where: { id: triggerId },
+    include: { project: { select: { name: true } } },
+  });
+  if (!row) return null;
+  return {
+    id: row.id,
+    message: row.message,
+    doneAt: row.doneAt,
+    projectName: row.project.name,
+  };
+}
+
 // ---- Incoming payments (การรับเงิน) -----------------------------------------
 
 export type ProjectPaymentItem = {

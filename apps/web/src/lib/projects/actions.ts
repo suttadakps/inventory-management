@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma, type ProjectStatus } from "@artiverges/database";
 
 import { PROJECT_STATUSES } from "@/lib/validation/project";
+import { sendLineMessage } from "@/lib/line/client";
 
 import { requireUser } from "@/lib/auth/session";
 import { projectBaseSchema, projectUpdateSchema } from "@/lib/validation/project";
@@ -289,8 +290,23 @@ export async function toggleTriggerDoneAction(
   const user = await requireUser();
   if (!(await ensureCanEditProject(user, projectId)))
     return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const before = await repo.getProjectTrigger(triggerId);
   await repo.markTriggerDone(triggerId, done);
   revalidatePath(`/projects/${projectId}`);
+
+  // Only announce a fresh "not done" -> "done" transition made from the web
+  // (avoids spamming the group on every re-check or on un-checking).
+  if (done && before && !before.doneAt) {
+    try {
+      await sendLineMessage(
+        `✅ [${before.projectName}] ${before.message} — เสร็จแล้ว`
+      );
+    } catch {
+      // Best-effort notification; the checkbox toggle itself already succeeded.
+    }
+  }
+
   return { ok: true };
 }
 
