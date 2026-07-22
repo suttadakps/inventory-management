@@ -309,7 +309,7 @@ export async function toggleTriggerDoneAction(
     revalidatePath("/calendar");
     try {
       await sendLineMessage(
-        `[${before.projectName}] ${before.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
+        `${before.projectName} ${before.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
       );
     } catch {
       // Best-effort notification; the checkbox toggle itself already succeeded.

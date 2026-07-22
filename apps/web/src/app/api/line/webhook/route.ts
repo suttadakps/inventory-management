@@ -83,7 +83,7 @@ export async function POST(req: Request) {
         if (event.replyToken) {
           await replyLineMessage(
             event.replyToken,
-            `${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(trigger.doneAt)} (ทำเครื่องหมายไว้แล้ว)`
+            `${trigger.projectName} ${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(trigger.doneAt)} (ทำเครื่องหมายไว้แล้ว)`
           );
         }
         continue;
@@ -102,7 +102,7 @@ export async function POST(req: Request) {
       if (event.replyToken) {
         await replyLineMessage(
           event.replyToken,
-          `${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
+          `${trigger.projectName} ${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
         );
       }
     } catch {
