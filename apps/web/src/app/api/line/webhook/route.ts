@@ -8,6 +8,7 @@ import {
   addStatusHistoryEntry,
 } from "@/lib/projects/repository";
 import { replyLineMessage } from "@/lib/line/client";
+import { formatDateBkk } from "@/lib/format";
 
 /**
  * Real LINE Messaging API webhook. Currently handles one thing: a postback
@@ -80,22 +81,29 @@ export async function POST(req: Request) {
         // Already marked — button stays clickable forever (LINE can't edit a
         // sent message), so keep repeat taps from re-processing/re-spamming.
         if (event.replyToken) {
-          await replyLineMessage(event.replyToken, "ทำเครื่องหมายไว้แล้วก่อนหน้านี้");
+          await replyLineMessage(
+            event.replyToken,
+            `${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(trigger.doneAt)} (ทำเครื่องหมายไว้แล้ว)`
+          );
         }
         continue;
       }
 
+      const now = new Date();
       await markTriggerDone(id, true);
       await addStatusHistoryEntry(
         trigger.projectId,
         `✅ ${trigger.message}`,
-        new Date(),
+        now,
         null
       );
       revalidatePath(`/projects/${trigger.projectId}`);
       revalidatePath("/calendar");
       if (event.replyToken) {
-        await replyLineMessage(event.replyToken, "✅ ทำเครื่องหมายเสร็จแล้ว");
+        await replyLineMessage(
+          event.replyToken,
+          `${trigger.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
+        );
       }
     } catch {
       // Best-effort: a failed reply/update here shouldn't fail the whole batch.

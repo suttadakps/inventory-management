@@ -37,3 +37,15 @@ export function formatBaht(value: number | null, compact = false): string {
 export function formatPct(value: number): string {
   return `${(Math.round(value * 100) / 100).toFixed(1)}%`;
 }
+
+const dateBkkFmt = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  timeZone: "Asia/Bangkok",
+});
+
+/** Format a date as dd/mm/yyyy in Bangkok local time (e.g. for LINE messages). */
+export function formatDateBkk(date: Date): string {
+  return dateBkkFmt.format(date);
+}

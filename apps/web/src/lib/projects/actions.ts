@@ -6,6 +6,7 @@ import { Prisma, type ProjectStatus } from "@artiverges/database";
 
 import { PROJECT_STATUSES } from "@/lib/validation/project";
 import { sendLineMessage } from "@/lib/line/client";
+import { formatDateBkk } from "@/lib/format";
 
 import { requireUser } from "@/lib/auth/session";
 import { projectBaseSchema, projectUpdateSchema } from "@/lib/validation/project";
@@ -292,6 +293,7 @@ export async function toggleTriggerDoneAction(
     return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
 
   const before = await repo.getProjectTrigger(triggerId);
+  const now = new Date();
   await repo.markTriggerDone(triggerId, done);
   revalidatePath(`/projects/${projectId}`);
 
@@ -301,13 +303,13 @@ export async function toggleTriggerDoneAction(
     await repo.addStatusHistoryEntry(
       projectId,
       `✅ ${before.message}`,
-      new Date(),
+      now,
       user.id
     );
     revalidatePath("/calendar");
     try {
       await sendLineMessage(
-        `✅ [${before.projectName}] ${before.message} — เสร็จแล้ว`
+        `[${before.projectName}] ${before.message} เรียบร้อยแล้ว ${formatDateBkk(now)}`
       );
     } catch {
       // Best-effort notification; the checkbox toggle itself already succeeded.
