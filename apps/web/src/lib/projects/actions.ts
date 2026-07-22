@@ -280,6 +280,30 @@ export async function deleteProjectTriggerAction(
   return { ok: true };
 }
 
+/** Toggle a trigger's to-do completion from the web checkbox. */
+export async function toggleTriggerDoneAction(
+  projectId: string,
+  triggerId: string,
+  done: boolean
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEditProject(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+  await repo.markTriggerDone(triggerId, done);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true };
+}
+
+/** Re-fetch a project's triggers (used by the client-side poll for LINE-side updates). */
+export async function getProjectTriggersAction(
+  projectId: string
+): Promise<repo.ProjectTriggerItem[]> {
+  const user = await requireUser();
+  const project = await repo.getProjectForUser(user, projectId);
+  if (!project) return [];
+  return repo.listProjectTriggers(projectId);
+}
+
 /** Quick-create a project with just a name; details are added later on edit. */
 export async function createProjectQuick(formData: FormData): Promise<void> {
   const user = await requireUser();

@@ -675,6 +675,7 @@ export type ProjectTriggerItem = {
   message: string;
   triggerAt: string;
   sentAt: string | null;
+  doneAt: string | null;
 };
 
 export async function listProjectTriggers(
@@ -690,6 +691,7 @@ export async function listProjectTriggers(
     message: r.message,
     triggerAt: r.triggerAt.toISOString(),
     sentAt: r.sentAt ? r.sentAt.toISOString() : null,
+    doneAt: r.doneAt ? r.doneAt.toISOString() : null,
   }));
 }
 
@@ -736,6 +738,17 @@ export async function markTriggerSent(triggerId: string): Promise<void> {
   await prisma.projectTrigger.update({
     where: { id: triggerId },
     data: { sentAt: new Date() },
+  });
+}
+
+/** Toggle a trigger's to-do completion (from the web checkbox or the LINE "Done" button). */
+export async function markTriggerDone(
+  triggerId: string,
+  done: boolean
+): Promise<void> {
+  await prisma.projectTrigger.update({
+    where: { id: triggerId },
+    data: { doneAt: done ? new Date() : null },
   });
 }
 

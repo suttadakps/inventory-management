@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { listDueTriggers, markTriggerSent } from "@/lib/projects/repository";
-import { sendLineMessage } from "@/lib/line/client";
+import { sendLineTriggerMessage } from "@/lib/line/client";
 
 /**
  * Runs daily (see apps/web/vercel.json) to push due project triggers to LINE.
@@ -30,7 +30,11 @@ export async function GET(req: Request) {
   let failed = 0;
   for (const trigger of due) {
     try {
-      await sendLineMessage(`[${trigger.projectName}] ${trigger.message}`);
+      await sendLineTriggerMessage(
+        trigger.projectName,
+        trigger.message,
+        trigger.id
+      );
       await markTriggerSent(trigger.id);
       sent += 1;
     } catch {
