@@ -10,6 +10,7 @@ import { BoqStatusBadge } from "@/components/boq/BoqStatusBadge";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
+import { BoqAiEntryButton } from "@/components/estimation/BoqAiEntryButton";
 import { formatBaht } from "@/lib/format";
 
 export const metadata: Metadata = { title: "BOQ / ใบเสนอราคา · ARTIVERGES NEXT" };
@@ -75,6 +76,14 @@ export default async function BoqIndexPage() {
               + สร้าง BOQ ใหม่
             </button>
           </form>
+        </ContentCard>
+      )}
+
+      {canManage && projects.length > 0 && (
+        <ContentCard className="p-4">
+          <BoqAiEntryButton
+            projects={projects.map((p) => ({ id: p.id, name: p.name, code: p.code }))}
+          />
         </ContentCard>
       )}
 
