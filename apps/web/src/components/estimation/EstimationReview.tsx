@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { commitExtractionAction } from "@/lib/estimation/actions";
-import type { ExtractedLine } from "@/lib/estimation/claude";
+import type { ExtractedLine } from "@/lib/estimation/shared";
 import { formatBaht } from "@/lib/format";
 
 const cellInput =

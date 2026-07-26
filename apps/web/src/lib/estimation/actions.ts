@@ -7,7 +7,9 @@ import { requireUser } from "@/lib/auth/session";
 import { canManageBoq } from "@/lib/boq/permissions";
 import { getProjectForUser } from "@/lib/projects/repository";
 import { createSupabaseServiceRoleClient } from "@/lib/supabase/serviceRole";
-import { extractBoqFromDocument, type ExtractedLine } from "./claude";
+import { extractBoqFromDocument as extractWithClaude } from "./claude";
+import { extractBoqFromDocument as extractWithChatGpt } from "./openai";
+import type { AiProvider, ExtractedLine } from "./shared";
 import * as repo from "./repository";
 
 const ACCEPTED_TYPES = new Set([
@@ -40,6 +42,9 @@ export async function uploadEstimationFileAction(
   if (file.size > MAX_BYTES)
     return { ok: false, error: "ไฟล์ใหญ่เกิน 4MB กรุณาลดขนาดไฟล์" };
 
+  const providerRaw = formData.get("provider");
+  const provider: AiProvider = providerRaw === "chatgpt" ? "chatgpt" : "claude";
+
   const buffer = Buffer.from(await file.arrayBuffer());
   const storagePath = `estimation/${projectId}/${crypto.randomUUID()}-${file.name}`;
 
@@ -57,10 +62,11 @@ export async function uploadEstimationFileAction(
 
   await repo.setExtractionStatus(extractionId, "processing");
   try {
-    const result = await extractBoqFromDocument({
-      base64: buffer.toString("base64"),
-      mimeType: file.type,
-    });
+    const base64 = buffer.toString("base64");
+    const result =
+      provider === "chatgpt"
+        ? await extractWithChatGpt({ base64, mimeType: file.type, fileName: file.name })
+        : await extractWithClaude({ base64, mimeType: file.type });
     await repo.setExtractionResult(extractionId, result);
   } catch (e) {
     await repo.setExtractionError(

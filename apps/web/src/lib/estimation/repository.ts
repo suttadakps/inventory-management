@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth/session";
 import { getProjectForUser } from "@/lib/projects/repository";
 import { createBoq, addFlatLine, updateFlatLine } from "@/lib/boq/repository";
-import type { ExtractedLine } from "./claude";
+import type { ExtractedLine } from "./shared";
 
 export type ExtractionStatus = "pending" | "processing" | "done" | "error";
 
