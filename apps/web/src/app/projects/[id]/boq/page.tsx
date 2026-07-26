@@ -48,12 +48,22 @@ export default async function ProjectBoqListPage({
             {data.project.code} · {data.project.clientName}
           </p>
         </div>
-        <Link
-          href={`/projects/${projectId}/quotations`}
-          className="inline-flex h-9 items-center rounded-md border border-primary-700 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
-        >
-          ใบเสนอราคา →
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          {canManage && (
+            <Link
+              href={`/projects/${projectId}/estimation/new`}
+              className="inline-flex h-9 items-center rounded-md bg-accent-600 px-3 text-body-sm font-medium text-white hover:brightness-95"
+            >
+              + สร้างจาก AI
+            </Link>
+          )}
+          <Link
+            href={`/projects/${projectId}/quotations`}
+            className="inline-flex h-9 items-center rounded-md border border-primary-700 px-3 text-body-sm font-medium text-primary-700 hover:bg-primary-100"
+          >
+            ใบเสนอราคา →
+          </Link>
+        </div>
       </div>
 
       {canManage && (

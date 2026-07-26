@@ -76,6 +76,7 @@ model Project {
   deletedAt          DateTime?              @map("deleted_at") @db.Timestamptz(6)
   commissionRate     Decimal                @default(0) @map("commission_rate") @db.Decimal(6, 3)
   boqs               Boq[]
+  boqExtractions     BoqExtraction[]
   contracts          Contract[]
   disbursements      Disbursement[]
   documents          Document[]
@@ -202,37 +203,57 @@ model ProjectMember {
 }
 
 model Boq {
-  id              String       @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId       String?      @map("project_id") @db.Uuid
-  version         Int          @default(1)
-  status          BoqStatus    @default(draft)
+  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId       String?         @map("project_id") @db.Uuid
+  version         Int             @default(1)
+  status          BoqStatus       @default(draft)
   title           String?
   notes           String?
-  totalCost       Decimal      @default(0) @map("total_cost") @db.Decimal(14, 2)
-  submittedAt     DateTime?    @map("submitted_at") @db.Timestamptz(6)
-  approvedAt      DateTime?    @map("approved_at") @db.Timestamptz(6)
-  approvedById    String?      @map("approved_by") @db.Uuid
-  createdById     String?      @map("created_by") @db.Uuid
-  updatedById     String?      @map("updated_by") @db.Uuid
-  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime?    @map("deleted_at") @db.Timestamptz(6)
-  proposerName    String?      @map("proposer_name")
-  vatEnabled      Boolean      @default(true) @map("vat_enabled")
-  whtEnabled      Boolean      @default(true) @map("wht_enabled")
-  paymentSchedule Json?        @map("payment_schedule")
+  totalCost       Decimal         @default(0) @map("total_cost") @db.Decimal(14, 2)
+  submittedAt     DateTime?       @map("submitted_at") @db.Timestamptz(6)
+  approvedAt      DateTime?       @map("approved_at") @db.Timestamptz(6)
+  approvedById    String?         @map("approved_by") @db.Uuid
+  createdById     String?         @map("created_by") @db.Uuid
+  updatedById     String?         @map("updated_by") @db.Uuid
+  createdAt       DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?       @map("deleted_at") @db.Timestamptz(6)
+  proposerName    String?         @map("proposer_name")
+  vatEnabled      Boolean         @default(true) @map("vat_enabled")
+  whtEnabled      Boolean         @default(true) @map("wht_enabled")
+  paymentSchedule Json?           @map("payment_schedule")
   site            String?
-  clientName      String?      @map("client_name")
-  docDate         DateTime?    @map("doc_date") @db.Date
-  lineItems       BoqItem[]    @relation("BoqLineItems")
+  clientName      String?         @map("client_name")
+  docDate         DateTime?       @map("doc_date") @db.Date
+  extractions     BoqExtraction[]
+  lineItems       BoqItem[]       @relation("BoqLineItems")
   sections        BoqSection[]
-  project         Project?     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project         Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
   quotations      Quotation[]
 
   @@unique([projectId, version])
   @@index([projectId])
   @@index([status])
   @@map("boqs")
+}
+
+model BoqExtraction {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  fileName     String   @map("file_name")
+  storagePath  String   @map("storage_path")
+  mimeType     String   @map("mime_type")
+  status       String   @default("pending")
+  result       Json?
+  errorMessage String?  @map("error_message")
+  boqId        String?  @map("boq_id") @db.Uuid
+  createdById  String?  @map("created_by") @db.Uuid
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  boq          Boq?     @relation(fields: [boqId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("boq_extractions")
 }
 
 model BoqSection {
