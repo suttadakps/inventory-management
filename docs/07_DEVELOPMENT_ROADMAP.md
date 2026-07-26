@@ -6,7 +6,7 @@
 | **Product** | ARTIVERGES NEXT |
 | **Status** | Draft |
 | **Version** | 1.0 |
-| **Last Updated** | 2026-07-03 |
+| **Last Updated** | 2026-07-26 |
 | **Related** | [01_PRD](01_PRD.md) · [08_CODING_STANDARDS](08_CODING_STANDARDS.md) · [10_DEPLOYMENT](10_DEPLOYMENT.md) |
 
 > The phased delivery plan for ARTIVERGES NEXT — how the scope in the PRD is sequenced into buildable, releasable increments. Timelines are indicative and expressed in relative sprints/phases; calendar dates are set at planning time.
@@ -25,6 +25,7 @@
 9. [Team & Roles](#9-team--roles)
 10. [Dependencies & Critical Path](#10-dependencies--critical-path)
 11. [Risk-Adjusted Sequencing](#11-risk-adjusted-sequencing)
+12. [Feature Backlog (User-Requested)](#12-feature-backlog-user-requested)
 
 ---
 
@@ -219,6 +220,16 @@ CRM → Clients → BOQ → Quotation → Contract   (commercial thread)
 - **Guard the boundary:** V2/V3 features stay out of MVP regardless of enthusiasm (mitigates scope-creep risk R-3).
 - **Field connectivity** deferred to Phase 2 mobile with offline sync (mitigates risk R-4); MVP stays responsive-web.
 - **Data quality** addressed in Foundation with Admin master-data tooling (mitigates risk R-2).
+
+---
+
+## 12 Feature Backlog (User-Requested)
+
+Ideas captured from stakeholder input, not yet scheduled into a phase above. Priority is a rough 1–5 star gut-check from the requester, not a committed ranking.
+
+| # | Feature | Priority | Details |
+|---|---|---|---|
+| 1 | BOQ Module — beyond a flat table | ⭐⭐⭐⭐⭐ | Import from Excel; import from PDF; edit QTY inline; compare revisions side by side; split by หมวด (category); auto-calculate ต้นทุน (cost). |
 
 ---
 
