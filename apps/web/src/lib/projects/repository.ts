@@ -842,6 +842,45 @@ export async function deleteProjectPayment(
   });
 }
 
+export type PaymentReceiptDetail = {
+  id: string;
+  amount: number;
+  method: string | null;
+  date: string;
+  note: string | null;
+  projectName: string;
+  projectCode: string;
+  clientName: string;
+  siteAddress: string | null;
+};
+
+/** Single incoming payment + enough project/client context to print a receipt. */
+export async function getProjectPaymentReceipt(
+  user: CurrentUser,
+  paymentId: string,
+  projectId: string
+): Promise<PaymentReceiptDetail | null> {
+  const project = await getProjectForUser(user, projectId);
+  if (!project) return null;
+
+  const payment = await prisma.payment.findFirst({
+    where: { id: paymentId, projectId, direction: "incoming" },
+  });
+  if (!payment) return null;
+
+  return {
+    id: payment.id,
+    amount: payment.amount.toNumber(),
+    method: payment.method,
+    date: payment.paidAt.toISOString(),
+    note: payment.note,
+    projectName: project.name,
+    projectCode: project.code,
+    clientName: project.clientName,
+    siteAddress: project.address,
+  };
+}
+
 // ---- Client portal (พอร์ทัลลูกค้า) — read-only project overview --------------
 
 export type PortalProject = {

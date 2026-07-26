@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 import {
   addPaymentAction,
@@ -150,16 +151,25 @@ export function ProjectPayments({
                     {p.note ? ` · ${p.note}` : ""}
                   </span>
                 </div>
-                {canEdit && (
-                  <button
-                    type="button"
-                    onClick={() => remove(p.id)}
-                    aria-label="ลบรายการรับเงิน"
-                    className="shrink-0 text-text-secondary hover:text-danger"
+                <div className="flex shrink-0 items-center gap-3">
+                  <Link
+                    href={`/projects/${projectId}/payments/${p.id}/print`}
+                    target="_blank"
+                    className="text-caption text-primary-600 hover:underline"
                   >
-                    ×
-                  </button>
-                )}
+                    ใบเสร็จ
+                  </Link>
+                  {canEdit && (
+                    <button
+                      type="button"
+                      onClick={() => remove(p.id)}
+                      aria-label="ลบรายการรับเงิน"
+                      className="text-text-secondary hover:text-danger"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
