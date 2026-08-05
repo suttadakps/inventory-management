@@ -40,14 +40,32 @@ export async function addWageAction(input: {
   return { ok: true };
 }
 
-export async function toggleWagePaidAction(
+export async function markWagePaidAction(
   id: string,
-  paid: boolean
+  input: { paidAt: string; amount: number; projectId: string | null }
 ): Promise<WageResult> {
   const user = await requireUser();
   if (!repo.canManageWages(user.role))
     return { ok: false, error: "ไม่มีสิทธิ์" };
-  await repo.setWagePaid(id, paid);
+  if (!(input.amount > 0)) return { ok: false, error: "กรุณากรอกจำนวนที่จ่าย" };
+  const paidAt = new Date(input.paidAt);
+  if (Number.isNaN(paidAt.getTime()))
+    return { ok: false, error: "กรุณาเลือกวันที่ให้ถูกต้อง" };
+
+  await repo.markWagePaid(id, {
+    paidAt,
+    amount: input.amount,
+    projectId: input.projectId,
+  });
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
+export async function unmarkWagePaidAction(id: string): Promise<WageResult> {
+  const user = await requireUser();
+  if (!repo.canManageWages(user.role))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
+  await repo.unmarkWagePaid(id);
   revalidatePath("/wages");
   return { ok: true };
 }

@@ -101,16 +101,27 @@ export async function createWage(
   return w.id;
 }
 
-export async function setWagePaid(
+/** Confirm a wage as paid — the date/amount/project are entered at the
+ * moment of payment rather than assumed to always match the wage entry. */
+export async function markWagePaid(
   id: string,
-  paid: boolean
+  input: { paidAt: Date; amount: number; projectId: string | null }
 ): Promise<void> {
   await prisma.wageEntry.update({
     where: { id },
     data: {
-      status: paid ? "paid" : "unpaid",
-      paidAt: paid ? new Date() : null,
+      status: "paid",
+      paidAt: input.paidAt,
+      amount: input.amount,
+      projectId: input.projectId,
     },
+  });
+}
+
+export async function unmarkWagePaid(id: string): Promise<void> {
+  await prisma.wageEntry.update({
+    where: { id },
+    data: { status: "unpaid", paidAt: null },
   });
 }
 

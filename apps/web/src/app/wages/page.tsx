@@ -146,7 +146,13 @@ export default async function WagesPage({
                     </td>
                     {canManage && (
                       <td className="px-6 py-4 align-top">
-                        <WageActions id={w.id} status={w.status} />
+                        <WageActions
+                          id={w.id}
+                          status={w.status}
+                          amount={w.amount}
+                          projectId={w.projectId}
+                          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                        />
                       </td>
                     )}
                   </tr>
