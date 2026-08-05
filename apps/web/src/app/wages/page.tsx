@@ -5,24 +5,24 @@ import { listProjects } from "@/lib/projects/repository";
 import { listWages, canManageWages } from "@/lib/wages/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
-import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { SelectFilterBar } from "@/components/ui/SelectFilterBar";
 import { WageForm } from "@/components/wages/WageForm";
-import { WageActions } from "@/components/wages/WageActions";
+import { WageWorkerGroup } from "@/components/wages/WageWorkerGroup";
+import type { WageRow } from "@/lib/wages/repository";
 import { formatBaht } from "@/lib/format";
 
 export const metadata: Metadata = { title: "สรุปค่าแรง · ARTIVERGES NEXT" };
 
-const dateFmt = new Intl.DateTimeFormat("en-US", {
-  month: "short",
-  day: "numeric",
-  year: "numeric",
-});
-
-const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
-  unpaid: { label: "ค้างจ่าย", tone: "amber" },
-  paid: { label: "จ่ายแล้ว", tone: "green" },
-};
+/** Group rows by worker name, preserving first-appearance order. */
+function groupByWorker(rows: WageRow[]): [string, WageRow[]][] {
+  const groups = new Map<string, WageRow[]>();
+  for (const r of rows) {
+    const g = groups.get(r.workerName);
+    if (g) g.push(r);
+    else groups.set(r.workerName, [r]);
+  }
+  return Array.from(groups.entries());
+}
 
 export default async function WagesPage({
   searchParams,
@@ -112,52 +112,15 @@ export default async function WagesPage({
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0ece2]">
-              {visibleRows.map((w) => {
-                const st = STATUS_TH[w.status] ?? {
-                  label: w.status,
-                  tone: "gray" as StatusTone,
-                };
-                return (
-                  <tr key={w.id} className="hover:bg-[#faf8f3]">
-                    <td className="px-6 py-4 align-top">
-                      <div className="font-semibold text-text-primary">
-                        {w.workerName}
-                      </div>
-                      {w.roleLabel && (
-                        <div className="text-caption text-text-secondary">
-                          {w.roleLabel}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 align-top text-text-secondary">
-                      {w.projectName ?? "—"}
-                    </td>
-                    <td className="px-6 py-4 text-right align-top tabular-nums text-text-primary">
-                      {w.daysWorked || "—"}
-                    </td>
-                    <td className="px-6 py-4 text-right align-top font-semibold tabular-nums text-text-primary">
-                      {formatBaht(w.amount, true)}
-                    </td>
-                    <td className="px-6 py-4 align-top text-text-secondary">
-                      {w.date ? dateFmt.format(new Date(w.date)) : "—"}
-                    </td>
-                    <td className="px-6 py-4 align-top">
-                      <StatusBadge tone={st.tone}>{st.label}</StatusBadge>
-                    </td>
-                    {canManage && (
-                      <td className="px-6 py-4 align-top">
-                        <WageActions
-                          id={w.id}
-                          status={w.status}
-                          amount={w.amount}
-                          projectId={w.projectId}
-                          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-                        />
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
+              {groupByWorker(visibleRows).map(([workerName, rows]) => (
+                <WageWorkerGroup
+                  key={workerName}
+                  workerName={workerName}
+                  rows={rows}
+                  canManage={canManage}
+                  projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                />
+              ))}
             </tbody>
           </table>
         </ContentCard>
