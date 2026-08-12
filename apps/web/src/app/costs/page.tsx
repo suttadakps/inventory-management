@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
 import { listProjects } from "@/lib/projects/repository";
@@ -6,6 +7,7 @@ import {
   listExpenses,
   canManageCosts,
 } from "@/lib/costs/repository";
+import { canManageWht } from "@/lib/wht/permissions";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge } from "@/components/ui/StatusBadge";
@@ -34,6 +36,7 @@ export default async function CostsPage({
     listProjects(user, {}),
   ]);
   const canManage = canManageCosts(user.role);
+  const canIssueWht = canManageWht(user.role);
 
   // Summary cards recompute from the filtered rows, so they always match
   // what the table below is showing (with no filter, that's everything).
@@ -102,8 +105,18 @@ export default async function CostsPage({
                     {dateFmt.format(new Date(r.date))}
                   </td>
                   {canManage && (
-                    <td className="px-6 py-4 text-right align-top">
-                      <CostDeleteButton id={r.id} />
+                    <td className="px-6 py-4 align-top">
+                      <div className="flex items-center justify-end gap-3">
+                        {canIssueWht && (
+                          <Link
+                            href={`/wht/new?source=expense&id=${r.id}`}
+                            className="text-body-sm text-primary-600 hover:underline"
+                          >
+                            ใบทวิ 50
+                          </Link>
+                        )}
+                        <CostDeleteButton id={r.id} />
+                      </div>
                     </td>
                   )}
                 </tr>

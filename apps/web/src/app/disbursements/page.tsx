@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 import { requireUser } from "@/lib/auth/session";
 import { listProjects } from "@/lib/projects/repository";
@@ -7,6 +8,7 @@ import {
   canApproveDisbursement,
   canSubmitDisbursement,
 } from "@/lib/disbursements/repository";
+import { canManageWht } from "@/lib/wht/permissions";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { DisbursementForm } from "@/components/disbursements/DisbursementForm";
@@ -36,6 +38,7 @@ export default async function DisbursementsPage() {
   ]);
   const canApprove = canApproveDisbursement(user.role);
   const canSubmit = canSubmitDisbursement(user.role);
+  const canIssueWht = canManageWht(user.role);
 
   return (
     <div className="space-y-5">
@@ -94,7 +97,17 @@ export default async function DisbursementsPage() {
                     </td>
                     {canApprove && (
                       <td className="px-6 py-4 align-top">
-                        <DisbursementActions id={r.id} status={r.status} />
+                        <div className="flex items-center gap-3">
+                          {canIssueWht && (
+                            <Link
+                              href={`/wht/new?source=disbursement&id=${r.id}`}
+                              className="text-body-sm text-primary-600 hover:underline"
+                            >
+                              ใบทวิ 50
+                            </Link>
+                          )}
+                          <DisbursementActions id={r.id} status={r.status} />
+                        </div>
                       </td>
                     )}
                   </tr>

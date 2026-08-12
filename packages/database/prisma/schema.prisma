@@ -94,11 +94,42 @@ model Project {
   quotations         Quotation[]
   tasks              Task[]
   wageEntries        WageEntry[]
+  whtCertificates    WhtCertificate[]
 
   @@index([clientId])
   @@index([managerId])
   @@index([status])
   @@map("projects")
+}
+
+model WhtCertificate {
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId         String?   @map("project_id") @db.Uuid
+  filingForm        String    @default("pnd3") @map("filing_form")
+  bookNo            String?   @map("book_no")
+  docNo             String?   @map("doc_no")
+  payerTaxId        String?   @map("payer_tax_id")
+  payeeTaxId        String?   @map("payee_tax_id")
+  payeeName         String    @map("payee_name")
+  payeeAddress      String?   @map("payee_address")
+  incomeCategory    String    @default("6") @map("income_category")
+  incomeDescription String    @map("income_description")
+  paymentDate       DateTime  @map("payment_date") @db.Date
+  amountPaid        Decimal   @map("amount_paid") @db.Decimal(14, 2)
+  taxWithheld       Decimal   @map("tax_withheld") @db.Decimal(14, 2)
+  withholdingType   String    @default("1") @map("withholding_type")
+  withholdingOther  String?   @map("withholding_other")
+  signerName        String?   @map("signer_name")
+  signedDate        DateTime? @map("signed_date") @db.Date
+  sourceType        String?   @map("source_type")
+  sourceId          String?   @map("source_id") @db.Uuid
+  createdById       String?   @map("created_by") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  project           Project?  @relation(fields: [projectId], references: [id], onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+  @@map("wht_certificates")
 }
 
 model ProjectStatusHistory {
