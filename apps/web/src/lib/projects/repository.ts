@@ -814,6 +814,7 @@ export async function addProjectPayment(
     paidAt?: Date;
     note?: string;
     clientId?: string | null;
+    vatAmount?: number;
   },
   actorId: string
 ): Promise<void> {
@@ -827,6 +828,7 @@ export async function addProjectPayment(
       method: input.method ?? null,
       paidAt: input.paidAt ?? new Date(),
       note: input.note ?? null,
+      vatAmount: input.vatAmount ?? null,
       createdById: actorId,
       updatedById: actorId,
     },

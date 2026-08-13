@@ -77,6 +77,7 @@ export async function createExpense(
     description?: string;
     amount: number;
     incurredAt?: Date;
+    vatAmount?: number;
   },
   userId: string
 ): Promise<string> {
@@ -88,6 +89,7 @@ export async function createExpense(
         description: input.description ?? null,
         amount: input.amount,
         incurredAt: input.incurredAt ?? new Date(),
+        vatAmount: input.vatAmount ?? null,
         spentById: userId,
         createdById: userId,
         updatedById: userId,

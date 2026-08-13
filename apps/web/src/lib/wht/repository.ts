@@ -89,7 +89,7 @@ export type WhtCertificateInput = {
   withholdingOther: string | null;
   signerName: string | null;
   signedDate: Date | null;
-  sourceType?: "expense" | "disbursement" | null;
+  sourceType?: "expense" | "disbursement" | "wage" | null;
   sourceId?: string | null;
 };
 
@@ -186,6 +186,7 @@ export type WhtSourceSeed = {
   projectName: string | null;
   description: string;
   amount: number;
+  suggestedPayeeName?: string;
 };
 
 /** Seed data for the "start from an existing record" flow — amount is
@@ -215,5 +216,20 @@ export async function getDisbursementForWht(id: string): Promise<WhtSourceSeed |
     projectName: row.project?.name ?? null,
     description: row.reason ?? row.requesterName,
     amount: row.amount.toNumber(),
+  };
+}
+
+export async function getWageForWht(id: string): Promise<WhtSourceSeed | null> {
+  const row = await prisma.wageEntry.findUnique({
+    where: { id },
+    include: { project: { select: { name: true } } },
+  });
+  if (!row) return null;
+  return {
+    projectId: row.projectId,
+    projectName: row.project?.name ?? null,
+    description: `ค่าแรง ${row.workerName}`,
+    amount: row.amount.toNumber(),
+    suggestedPayeeName: row.workerName,
   };
 }

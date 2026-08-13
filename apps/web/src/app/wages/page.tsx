@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { requireUser } from "@/lib/auth/session";
 import { listProjects } from "@/lib/projects/repository";
 import { listWages, canManageWages } from "@/lib/wages/repository";
+import { canManageWht } from "@/lib/wht/permissions";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { SelectFilterBar } from "@/components/ui/SelectFilterBar";
@@ -36,6 +37,7 @@ export default async function WagesPage({
     listProjects(user, {}),
   ]);
   const canManage = canManageWages(user.role);
+  const canIssueWht = canManageWht(user.role);
 
   // Distinct worker names present in the data, for the filter dropdown.
   const workerNames = Array.from(
@@ -118,6 +120,7 @@ export default async function WagesPage({
                   workerName={workerName}
                   rows={rows}
                   canManage={canManage}
+                  canIssueWht={canIssueWht}
                   projects={projects.map((p) => ({ id: p.id, name: p.name }))}
                 />
               ))}

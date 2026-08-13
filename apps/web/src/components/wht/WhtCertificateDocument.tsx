@@ -5,16 +5,13 @@ import { formatBaht } from "@/lib/format";
 import { bahtText } from "@/lib/wht/bahtText";
 import { PrintButton } from "@/components/boq/PrintButton";
 import { TaxIdBoxes } from "@/components/wht/TaxIdBoxes";
+import { COMPANY_NAME, COMPANY_ADDRESS } from "@/lib/company";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "2-digit",
   year: "numeric",
 });
-
-const COMPANY_NAME = "บจก.อาร์ติเวอร์จ เน็กส์ จำกัด";
-const COMPANY_ADDRESS =
-  "23/71 หมู่บ้านพิศาล ประชาอุทิศ ถนนเลียบทางด่วน เขตทุ่งครุ แขวงทุ่งครุ กรุงเทพ 10140";
 
 const WITHHOLDING_LABELS: Record<string, string> = {
   "1": "หัก ณ ที่จ่าย",

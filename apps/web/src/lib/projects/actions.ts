@@ -150,7 +150,13 @@ const PAYMENT_METHODS = [
 /** Record an incoming payment (การรับเงิน) against a project. */
 export async function addPaymentAction(
   projectId: string,
-  input: { amount: number; method?: string; date?: string; note?: string }
+  input: {
+    amount: number;
+    method?: string;
+    date?: string;
+    note?: string;
+    vatAmount?: number;
+  }
 ): Promise<InlineResult> {
   const user = await requireUser();
   if (!(await ensureCanEditProject(user, projectId)))
@@ -174,6 +180,7 @@ export async function addPaymentAction(
       paidAt: input.date ? new Date(input.date) : undefined,
       note: input.note?.trim() || undefined,
       clientId: project.clientId,
+      vatAmount: input.vatAmount != null && input.vatAmount > 0 ? input.vatAmount : undefined,
     },
     user.id
   );

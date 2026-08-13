@@ -13,6 +13,7 @@ export async function addExpenseAction(input: {
   amount: number;
   date?: string;
   description?: string;
+  vatAmount?: number;
 }): Promise<CostResult> {
   const user = await requireUser();
   if (!repo.canManageCosts(user.role))
@@ -28,6 +29,7 @@ export async function addExpenseAction(input: {
       description: input.description?.trim() || undefined,
       amount: input.amount,
       incurredAt: input.date ? new Date(input.date) : undefined,
+      vatAmount: input.vatAmount != null && input.vatAmount > 0 ? input.vatAmount : undefined,
     },
     user.id
   );

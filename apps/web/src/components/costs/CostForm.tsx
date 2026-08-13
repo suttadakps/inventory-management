@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { addExpenseAction } from "@/lib/costs/actions";
+import { vatFromInclusiveAmount } from "@/lib/vat/calc";
 import { ContentCard } from "@/components/ui/ContentCard";
 
 type ProjectOption = { id: string; name: string };
@@ -30,7 +31,19 @@ export function CostForm({ projects }: { projects: ProjectOption[] }) {
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(todayStr());
   const [description, setDescription] = useState("");
+  const [hasVat, setHasVat] = useState(false);
+  const [vatAmount, setVatAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  const toggleVat = (checked: boolean) => {
+    setHasVat(checked);
+    if (checked) {
+      const amt = Number(amount);
+      setVatAmount(amt > 0 ? String(vatFromInclusiveAmount(amt)) : "");
+    } else {
+      setVatAmount("");
+    }
+  };
 
   const submit = () => {
     const amt = Number(amount);
@@ -43,11 +56,14 @@ export function CostForm({ projects }: { projects: ProjectOption[] }) {
         amount: amt,
         date,
         description: description.trim() || undefined,
+        vatAmount: hasVat ? Number(vatAmount) || 0 : undefined,
       });
       if (res.ok) {
         setAmount("");
         setDescription("");
         setDate(todayStr());
+        setHasVat(false);
+        setVatAmount("");
         router.refresh();
       } else {
         setError(res.error);
@@ -87,7 +103,13 @@ export function CostForm({ projects }: { projects: ProjectOption[] }) {
           step="0.01"
           inputMode="decimal"
           value={amount}
-          onChange={(e) => setAmount(e.target.value)}
+          onChange={(e) => {
+            setAmount(e.target.value);
+            if (hasVat) {
+              const amt = Number(e.target.value);
+              setVatAmount(amt > 0 ? String(vatFromInclusiveAmount(amt)) : "");
+            }
+          }}
           placeholder="จำนวนเงิน (บาท)"
           className={inputCls}
         />
@@ -103,6 +125,25 @@ export function CostForm({ projects }: { projects: ProjectOption[] }) {
           placeholder="รายละเอียด / ผู้ขาย"
           className={`${inputCls} sm:col-span-2`}
         />
+        <label className="flex h-11 items-center gap-2 text-body-sm text-text-primary">
+          <input
+            type="checkbox"
+            checked={hasVat}
+            onChange={(e) => toggleVat(e.target.checked)}
+          />
+          มี VAT (7%)
+        </label>
+        {hasVat && (
+          <input
+            type="number"
+            min={0}
+            step="0.01"
+            value={vatAmount}
+            onChange={(e) => setVatAmount(e.target.value)}
+            placeholder="จำนวน VAT (บาท)"
+            className={inputCls}
+          />
+        )}
       </div>
 
       {error && <p className="mt-2 text-caption text-danger">{error}</p>}

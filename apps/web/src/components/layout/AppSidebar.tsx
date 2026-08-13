@@ -24,6 +24,7 @@ const NAV: Item[] = [
   { label: "บันทึกต้นทุน", href: "/costs" },
   { label: "สรุปค่าแรง", href: "/wages" },
   { label: "ใบทวิ 50", href: "/wht" },
+  { label: "ภ.พ.30", href: "/vat" },
   { label: "พอร์ทัลลูกค้า", href: "/portal" },
   { label: "โปรเจคของฉัน (AE)", href: "/my-projects" },
   { label: "พาร์ทเนอร์แนะนำงาน", href: "/referrals" },

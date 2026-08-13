@@ -54,7 +54,9 @@ function toRepoInput(input: WhtFormInput): WhtCertificateInput | { error: string
     return { error: "กรุณาเลือกวันที่ลงนามให้ถูกต้อง" };
 
   const sourceType =
-    input.sourceType === "expense" || input.sourceType === "disbursement"
+    input.sourceType === "expense" ||
+    input.sourceType === "disbursement" ||
+    input.sourceType === "wage"
       ? input.sourceType
       : null;
 

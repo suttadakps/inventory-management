@@ -7,6 +7,7 @@ import { canManageWht } from "@/lib/wht/permissions";
 import {
   getExpenseForWht,
   getDisbursementForWht,
+  getWageForWht,
 } from "@/lib/wht/repository";
 import { listProjects } from "@/lib/projects/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
@@ -56,6 +57,21 @@ export default async function WhtNewPage({
       };
       sourceNote =
         "ดึงจำนวนเงินและคำอธิบายเบื้องต้นจากรายการเบิกเงินมาให้แล้ว — กรุณาตรวจสอบ/กรอกชื่อและเลขประจำตัวผู้เสียภาษีของผู้ถูกหักภาษีเอง เนื่องจากระบบยังไม่มีข้อมูลนี้ผูกกับรายการเบิกเงิน";
+    }
+  } else if (sp.source === "wage" && sp.id) {
+    const seed = await getWageForWht(sp.id);
+    if (seed) {
+      initial = {
+        ...initial,
+        projectId: seed.projectId ?? "",
+        payeeName: seed.suggestedPayeeName ?? "",
+        incomeDescription: seed.description,
+        amountPaid: String(seed.amount),
+        sourceType: "wage",
+        sourceId: sp.id,
+      };
+      sourceNote =
+        "ดึงชื่อคนงาน จำนวนเงิน และโปรเจคจากรายการค่าแรงมาให้แล้ว — กรุณาตรวจสอบ/กรอกเลขประจำตัวผู้เสียภาษีของคนงานเอง";
     }
   }
 

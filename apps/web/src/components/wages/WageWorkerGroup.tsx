@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 import { WageActions } from "@/components/wages/WageActions";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
@@ -22,11 +23,13 @@ export function WageWorkerGroup({
   workerName,
   rows,
   canManage,
+  canIssueWht,
   projects,
 }: {
   workerName: string;
   rows: WageRow[];
   canManage: boolean;
+  canIssueWht: boolean;
   projects: { id: string; name: string }[];
 }) {
   const [open, setOpen] = useState(false);
@@ -119,13 +122,23 @@ export function WageWorkerGroup({
               </td>
               {canManage && (
                 <td className="px-6 py-3 align-top">
-                  <WageActions
-                    id={w.id}
-                    status={w.status}
-                    amount={w.amount}
-                    projectId={w.projectId}
-                    projects={projects}
-                  />
+                  <div className="flex items-center justify-end gap-3">
+                    {canIssueWht && (
+                      <Link
+                        href={`/wht/new?source=wage&id=${w.id}`}
+                        className="text-body-sm text-primary-600 hover:underline"
+                      >
+                        ใบทวิ 50
+                      </Link>
+                    )}
+                    <WageActions
+                      id={w.id}
+                      status={w.status}
+                      amount={w.amount}
+                      projectId={w.projectId}
+                      projects={projects}
+                    />
+                  </div>
                 </td>
               )}
             </tr>

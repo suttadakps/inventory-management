@@ -10,6 +10,7 @@ import {
 } from "@/lib/projects/actions";
 import type { ProjectPaymentItem } from "@/lib/projects/repository";
 import { formatBaht } from "@/lib/format";
+import { vatFromInclusiveAmount } from "@/lib/vat/calc";
 
 const dateFmt = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -43,9 +44,21 @@ export function ProjectPayments({
   const [date, setDate] = useState(todayStr());
   const [method, setMethod] = useState("bank_transfer");
   const [note, setNote] = useState("");
+  const [hasVat, setHasVat] = useState(false);
+  const [vatAmount, setVatAmount] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const total = payments.reduce((s, p) => s + p.amount, 0);
+
+  const toggleVat = (checked: boolean) => {
+    setHasVat(checked);
+    if (checked) {
+      const amt = Number(amount);
+      setVatAmount(amt > 0 ? String(vatFromInclusiveAmount(amt)) : "");
+    } else {
+      setVatAmount("");
+    }
+  };
 
   const submit = () => {
     const amt = Number(amount);
@@ -60,11 +73,14 @@ export function ProjectPayments({
         method,
         date,
         note,
+        vatAmount: hasVat ? Number(vatAmount) || 0 : undefined,
       });
       if (res.ok) {
         setAmount("");
         setNote("");
         setDate(todayStr());
+        setHasVat(false);
+        setVatAmount("");
         router.refresh();
       } else {
         setError(res.error);
@@ -92,7 +108,13 @@ export function ProjectPayments({
               step="0.01"
               inputMode="decimal"
               value={amount}
-              onChange={(e) => setAmount(e.target.value)}
+              onChange={(e) => {
+                setAmount(e.target.value);
+                if (hasVat) {
+                  const amt = Number(e.target.value);
+                  setVatAmount(amt > 0 ? String(vatFromInclusiveAmount(amt)) : "");
+                }
+              }}
               placeholder="จำนวนเงิน (฿)"
               className={`${inputCls} w-36`}
             />
@@ -126,6 +148,27 @@ export function ProjectPayments({
             >
               บันทึกรับเงิน
             </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex h-9 items-center gap-2 text-body-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={hasVat}
+                onChange={(e) => toggleVat(e.target.checked)}
+              />
+              มี VAT (7%)
+            </label>
+            {hasVat && (
+              <input
+                type="number"
+                min={0}
+                step="0.01"
+                value={vatAmount}
+                onChange={(e) => setVatAmount(e.target.value)}
+                placeholder="จำนวน VAT (บาท)"
+                className={`${inputCls} w-36`}
+              />
+            )}
           </div>
           {error && <p className="text-caption text-danger">{error}</p>}
         </div>
