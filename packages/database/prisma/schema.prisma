@@ -619,6 +619,20 @@ model VatFiling {
   @@map("vat_filings")
 }
 
+model Worker {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  taxId       String?  @map("tax_id")
+  position    String?
+  phone       String?
+  address     String?
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("workers")
+}
+
 model Payroll {
   id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   userId      String        @map("user_id") @db.Uuid

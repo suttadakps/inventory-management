@@ -10,6 +10,7 @@ import {
   getWageForWht,
 } from "@/lib/wht/repository";
 import { listProjects } from "@/lib/projects/repository";
+import { listWorkers } from "@/lib/workers/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { WhtCertificateForm } from "@/components/wht/WhtCertificateForm";
 import type { WhtFormInput } from "@/lib/wht/actions";
@@ -25,7 +26,10 @@ export default async function WhtNewPage({
   if (!canManageWht(user.role)) notFound();
 
   const sp = await searchParams;
-  const projects = await listProjects(user, {});
+  const [projects, workers] = await Promise.all([
+    listProjects(user, {}),
+    listWorkers(),
+  ]);
 
   let initial: Partial<WhtFormInput> = { signerName: user.fullName ?? "" };
   let sourceNote: string | undefined;
@@ -92,6 +96,7 @@ export default async function WhtNewPage({
           mode="create"
           initial={initial}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          workers={workers}
           sourceNote={sourceNote}
         />
       </ContentCard>

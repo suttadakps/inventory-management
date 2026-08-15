@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { canManageWht } from "@/lib/wht/permissions";
 import { getWhtCertificate } from "@/lib/wht/repository";
 import { listProjects } from "@/lib/projects/repository";
+import { listWorkers } from "@/lib/workers/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { WhtCertificateForm } from "@/components/wht/WhtCertificateForm";
 import { DeleteWhtButton } from "@/components/wht/DeleteWhtButton";
@@ -22,9 +23,10 @@ export default async function WhtDetailPage({
   if (!canManageWht(user.role)) notFound();
 
   const { id } = await params;
-  const [cert, projects] = await Promise.all([
+  const [cert, projects, workers] = await Promise.all([
     getWhtCertificate(user, id),
     listProjects(user, {}),
+    listWorkers(),
   ]);
   if (!cert) notFound();
 
@@ -78,6 +80,7 @@ export default async function WhtDetailPage({
           certId={id}
           initial={initial}
           projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+          workers={workers}
         />
       </ContentCard>
     </div>

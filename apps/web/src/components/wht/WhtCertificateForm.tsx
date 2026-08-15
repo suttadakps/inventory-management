@@ -8,7 +8,9 @@ import {
   updateWhtCertificateAction,
   type WhtFormInput,
 } from "@/lib/wht/actions";
+import { createWorkerFromWhtAction } from "@/lib/workers/actions";
 import type { WhtCertificateItem } from "@/lib/wht/repository";
+import type { WorkerItem } from "@/lib/workers/repository";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
@@ -29,18 +31,22 @@ export function WhtCertificateForm({
   certId,
   initial,
   projects,
+  workers = [],
   sourceNote,
 }: {
   mode: "create" | "edit";
   certId?: string;
   initial: Partial<WhtFormInput>;
   projects: { id: string; name: string }[];
+  workers?: WorkerItem[];
   sourceNote?: string;
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const [saveToRoster, setSaveToRoster] = useState(false);
 
   const [form, setForm] = useState<WhtFormInput>({
     projectId: initial.projectId ?? "",
@@ -77,6 +83,13 @@ export function WhtCertificateForm({
         mode === "create"
           ? await createWhtCertificateAction(form)
           : await updateWhtCertificateAction(certId!, form);
+      if (res.ok && saveToRoster && !selectedWorkerId && form.payeeName.trim()) {
+        await createWorkerFromWhtAction({
+          name: form.payeeName,
+          taxId: form.payeeTaxId,
+          address: form.payeeAddress,
+        });
+      }
       setPending(false);
       if (res.ok) {
         router.push(`/wht/${res.id}`);
@@ -152,6 +165,30 @@ export function WhtCertificateForm({
             className={inputCls}
           />
         </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label>เลือกช่างจากรายชื่อ (ไม่บังคับ)</Label>
+          <Select
+            value={selectedWorkerId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedWorkerId(id);
+              const worker = workers.find((w) => w.id === id);
+              if (worker) {
+                set("payeeName", worker.name);
+                set("payeeTaxId", worker.taxId ?? "");
+                set("payeeAddress", worker.address ?? "");
+              }
+            }}
+            className={inputCls}
+          >
+            <option value="">— กรอกเอง / สร้างใหม่ —</option>
+            {workers.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.name}
+              </option>
+            ))}
+          </Select>
+        </div>
         <div className="space-y-1.5">
           <Label>เลขประจำตัวผู้เสียภาษี (ผู้ถูกหักภาษี)</Label>
           <Input
@@ -177,6 +214,18 @@ export function WhtCertificateForm({
             rows={2}
           />
         </div>
+        {!selectedWorkerId && form.payeeName.trim() && (
+          <div className="space-y-1.5 sm:col-span-2">
+            <label className="flex h-6 items-center gap-2 text-body-sm text-text-primary">
+              <input
+                type="checkbox"
+                checked={saveToRoster}
+                onChange={(e) => setSaveToRoster(e.target.checked)}
+              />
+              บันทึกช่างนี้ไว้ในรายชื่อช่างด้วย
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5 border-t border-border pt-4">

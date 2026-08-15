@@ -23,6 +23,7 @@ const NAV: Item[] = [
   { label: "เบิกเงิน", href: "/disbursements" },
   { label: "บันทึกต้นทุน", href: "/costs" },
   { label: "สรุปค่าแรง", href: "/wages" },
+  { label: "รายชื่อช่าง", href: "/workers" },
   { label: "ใบทวิ 50", href: "/wht" },
   { label: "ภ.พ.30", href: "/vat" },
   { label: "พอร์ทัลลูกค้า", href: "/portal" },
