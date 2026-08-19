@@ -17,6 +17,13 @@ const PUBLIC_PATHS = new Set<string>([
 /** Auth pages an already-authenticated user should be bounced away from. */
 const AUTHED_REDIRECT_AWAY = new Set<string>(["/login", "/forgot-password"]);
 
+/**
+ * The internal back-office subdomain shares this deployment with the public
+ * marketing site (docs/03 §6). Its root path must land in the app, not on
+ * the marketing homepage that "/" otherwise renders for every other host.
+ */
+const MANAGEMENT_HOST = "management.artivergesnext.com";
+
 function isPublicPath(pathname: string): boolean {
   return (
     PUBLIC_PATHS.has(pathname) ||
@@ -68,6 +75,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const pathname = request.nextUrl.pathname;
+
+  if (request.headers.get("host") === MANAGEMENT_HOST && pathname === "/") {
+    const url = request.nextUrl.clone();
+    url.pathname = user ? "/dashboard" : "/login";
+    return NextResponse.redirect(url);
+  }
 
   if (!user && !isPublicPath(pathname)) {
     const url = request.nextUrl.clone();
