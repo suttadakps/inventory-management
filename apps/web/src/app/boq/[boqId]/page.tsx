@@ -9,6 +9,7 @@ import {
   canManageBoq,
 } from "@/lib/boq/permissions";
 import { getBoqFlat } from "@/lib/boq/repository";
+import { listPriceCatalogItems } from "@/lib/price-catalog/repository";
 import {
   submitBoqAction,
   approveBoqAction,
@@ -65,6 +66,8 @@ export default async function StandaloneBoqDetailPage({
   if (doc.project) {
     redirect(`/projects/${doc.project.id}/boq/${boqId}`);
   }
+
+  const priceCatalog = await listPriceCatalogItems();
 
   const editable = isBoqEditable(user.role, doc.status);
   const canApprove = canApproveBoq(user.role);
@@ -134,6 +137,7 @@ export default async function StandaloneBoqDetailPage({
         doc={doc}
         editable={editable}
         printHref={`/boq/${boqId}/print`}
+        priceCatalog={priceCatalog}
       />
     </div>
   );

@@ -20,6 +20,7 @@ const NAV: Item[] = [
   { label: "โปรเจค", href: "/projects" },
   { label: "ปฏิทิน", href: "/calendar" },
   { label: "BOQ / ใบเสนอราคา", href: "/boq" },
+  { label: "ราคากลาง", href: "/price-catalog" },
   { label: "เบิกเงิน", href: "/disbursements" },
   { label: "บันทึกต้นทุน", href: "/costs" },
   { label: "สรุปค่าแรง", href: "/wages" },

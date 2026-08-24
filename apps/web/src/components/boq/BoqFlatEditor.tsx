@@ -9,6 +9,7 @@ import type {
   BoqFlatLine,
   BoqMilestone,
 } from "@/lib/boq/repository";
+import type { PriceCatalogItem } from "@/lib/price-catalog/repository";
 import {
   addBoqLineAction,
   updateBoqLineAction,
@@ -29,10 +30,12 @@ export function BoqFlatEditor({
   doc,
   editable,
   printHref,
+  priceCatalog,
 }: {
   doc: BoqFlatDoc;
   editable: boolean;
   printHref: string;
+  priceCatalog: PriceCatalogItem[];
 }) {
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -235,17 +238,45 @@ export function BoqFlatEditor({
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <input
-                      value={r.description}
-                      disabled={!editable}
-                      onChange={(e) =>
-                        patchRow(r.id, { description: e.target.value })
-                      }
-                      onBlur={() =>
-                        saveLine(r.id, { description: r.description })
-                      }
-                      className={cellInput}
-                    />
+                    <div className="space-y-1">
+                      {editable && priceCatalog.length > 0 && (
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const picked = priceCatalog.find(
+                              (p) => p.id === e.target.value
+                            );
+                            if (!picked) return;
+                            const patch = {
+                              description: picked.name,
+                              unit: picked.unit ?? r.unit,
+                              unitPrice: picked.materialCost + picked.laborCost,
+                            };
+                            patchRow(r.id, patch);
+                            saveLine(r.id, patch);
+                          }}
+                          className="w-full rounded-md border border-[#e2ddd0] bg-white px-2 py-1 text-caption text-text-secondary focus:border-primary-600 focus:outline-none"
+                        >
+                          <option value="">— เลือกจากราคากลาง —</option>
+                          {priceCatalog.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name} ({formatBaht(p.materialCost + p.laborCost, true)})
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                      <input
+                        value={r.description}
+                        disabled={!editable}
+                        onChange={(e) =>
+                          patchRow(r.id, { description: e.target.value })
+                        }
+                        onBlur={() =>
+                          saveLine(r.id, { description: r.description })
+                        }
+                        className={cellInput}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-2">
                     <input
