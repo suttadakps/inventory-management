@@ -75,6 +75,7 @@ model Project {
   updatedAt          DateTime               @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt          DateTime?              @map("deleted_at") @db.Timestamptz(6)
   commissionRate     Decimal                @default(0) @map("commission_rate") @db.Decimal(6, 3)
+  boqLink            String?                @map("boq_link")
   boqs               Boq[]
   boqExtractions     BoqExtraction[]
   contracts          Contract[]

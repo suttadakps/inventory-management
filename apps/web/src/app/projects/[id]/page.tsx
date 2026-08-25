@@ -223,6 +223,23 @@ export default async function ProjectDetailPage({
               </dt>
               <dd className="text-text-primary">{project.address ?? "—"}</dd>
             </div>
+            <div className="col-span-2">
+              <dt className="text-caption text-text-secondary">ลิงก์ BOQ</dt>
+              <dd className="truncate text-text-primary">
+                {project.boqLink ? (
+                  <a
+                    href={project.boqLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary-700 hover:underline"
+                  >
+                    {project.boqLink}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
+            </div>
           </dl>
         </ContentCard>
 

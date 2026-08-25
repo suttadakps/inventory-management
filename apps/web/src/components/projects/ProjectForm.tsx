@@ -20,6 +20,7 @@ export type ProjectFormValues = {
   name?: string;
   clientId?: string;
   address?: string | null;
+  boqLink?: string | null;
   status?: string;
   budget?: number | null;
   contractValue?: number | null;
@@ -157,6 +158,19 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
             invalid={Boolean(fe.address)}
           />
           <FieldError message={fe.address} />
+        </div>
+
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="boqLink">ลิงก์ BOQ</Label>
+          <Input
+            id="boqLink"
+            name="boqLink"
+            type="url"
+            defaultValue={values?.boqLink ?? ""}
+            placeholder="https://…"
+            invalid={Boolean(fe.boqLink)}
+          />
+          <FieldError message={fe.boqLink} />
         </div>
 
         <div className="space-y-1.5">

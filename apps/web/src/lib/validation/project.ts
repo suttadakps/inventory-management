@@ -31,6 +31,11 @@ const optionalString = z.preprocess(
   z.string().trim().max(2000).optional()
 );
 
+const optionalUrl = z.preprocess(
+  emptyToUndefined,
+  z.string().trim().max(2000).url("Enter a valid URL.").optional()
+);
+
 const optionalDate = z.preprocess(
   emptyToUndefined,
   z.coerce.date({ invalid_type_error: "Invalid date." }).optional()
@@ -79,6 +84,7 @@ export const projectBaseSchema = z
       .max(160, "Project name is too long."),
     clientId: z.string().uuid("Select a client."),
     address: optionalString,
+    boqLink: optionalUrl,
     status: z.enum(PROJECT_STATUSES),
     budget: optionalMoney,
     contractValue: optionalMoney,

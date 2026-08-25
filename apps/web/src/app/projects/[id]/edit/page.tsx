@@ -68,6 +68,7 @@ export default async function EditProjectPage({
             name: project.name,
             clientId: project.clientId,
             address: project.address,
+            boqLink: project.boqLink,
             status: project.status,
             budget: project.budget,
             contractValue: project.contractValue,

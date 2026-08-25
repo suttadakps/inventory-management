@@ -39,6 +39,7 @@ export type ProjectListItem = {
 export type ProjectDetail = ProjectListItem & {
   clientId: string;
   address: string | null;
+  boqLink: string | null;
   managerId: string | null;
   siteEngineerId: string | null;
   contractValue: number | null;
@@ -56,6 +57,7 @@ export type ProjectWriteInput = {
   name: string;
   clientId: string;
   address?: string;
+  boqLink?: string;
   status: ProjectStatus;
   budget?: number;
   contractValue?: number;
@@ -127,6 +129,7 @@ function toDetail(p: ProjectRecord): ProjectDetail {
     ...toListItem(p),
     clientId: p.clientId,
     address: p.address,
+    boqLink: p.boqLink,
     managerId: p.managerId,
     siteEngineerId: p.members[0]?.userId ?? null,
     contractValue: dec(p.contractValue),
@@ -278,6 +281,7 @@ function editableData(input: ProjectWriteInput, actorId: string) {
     clientId: input.clientId,
     status: input.status,
     address: input.address ?? null,
+    boqLink: input.boqLink ?? null,
     budgetCost: input.budget ?? null,
     contractValue: input.contractValue ?? null,
     actualCost: input.actualCost ?? 0,
