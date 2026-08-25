@@ -8,15 +8,7 @@ import {
   updateProjectStatusAction,
 } from "@/lib/projects/actions";
 import { PROJECT_STATUSES } from "@/lib/validation/project";
-
-const STATUS_TH: Record<string, string> = {
-  planning: "วางแผน",
-  active: "กำลังดำเนินการ",
-  on_hold: "พักงาน",
-  completed: "เสร็จสิ้น",
-  warranty: "รับประกัน",
-  closed: "ปิดงาน",
-};
+import { STATUS_TH } from "@/lib/projects/statusLabels";
 
 export function ProjectProgressControl({
   projectId,
@@ -76,7 +68,7 @@ export function ProjectProgressControl({
         >
           {PROJECT_STATUSES.map((st) => (
             <option key={st} value={st}>
-              {STATUS_TH[st] ?? st}
+              {STATUS_TH[st].label}
             </option>
           ))}
         </select>

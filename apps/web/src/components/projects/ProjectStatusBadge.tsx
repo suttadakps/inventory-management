@@ -1,7 +1,10 @@
 import { Badge, type BadgeTone } from "@/components/ui/Badge";
 
 type Status =
+  | "quotation"
+  | "lost"
   | "planning"
+  | "started"
   | "active"
   | "on_hold"
   | "completed"
@@ -9,7 +12,10 @@ type Status =
   | "closed";
 
 const MAP: Record<Status, { label: string; tone: BadgeTone }> = {
+  quotation: { label: "Quotation Sent", tone: "neutral" },
+  lost: { label: "Lost", tone: "danger" },
   planning: { label: "Planning", tone: "neutral" },
+  started: { label: "Started", tone: "info" },
   active: { label: "Active", tone: "info" },
   on_hold: { label: "On Hold", tone: "warning" },
   completed: { label: "Completed", tone: "success" },
@@ -23,7 +29,10 @@ export function ProjectStatusBadge({ status }: { status: string }) {
 }
 
 export const STATUS_LABELS: Record<Status, string> = {
+  quotation: "Quotation Sent",
+  lost: "Lost",
   planning: "Planning",
+  started: "Started",
   active: "Active",
   on_hold: "On Hold",
   completed: "Completed",

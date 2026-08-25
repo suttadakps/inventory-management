@@ -17,7 +17,10 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 });
 
 const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
+  quotation: { label: "เสนอราคา", tone: "tan" },
+  lost: { label: "Lost / ไม่ได้งาน", tone: "red" },
   planning: { label: "วางแผน", tone: "tan" },
+  started: { label: "เริ่มงาน", tone: "navy" },
   active: { label: "กำลังดำเนินการ", tone: "navy" },
   on_hold: { label: "พักงาน", tone: "amber" },
   completed: { label: "เสร็จสิ้น", tone: "green" },

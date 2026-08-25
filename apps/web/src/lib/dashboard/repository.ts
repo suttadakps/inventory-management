@@ -1,5 +1,5 @@
 import { unstable_cache } from "next/cache";
-import type { Prisma } from "@artiverges/database";
+import type { Prisma, ProjectStatus } from "@artiverges/database";
 
 import { prisma } from "@/lib/db";
 
@@ -19,6 +19,18 @@ import { prisma } from "@/lib/db";
  */
 
 export type DashboardRange = { from?: Date; to?: Date; projectId?: string };
+
+/** Statuses that count toward "มูลค่าโปรเจคทั้งหมด" — work has actually
+ * started, not just quoted/planned. Pre-start CRM stages (quotation, lost,
+ * planning) are excluded. */
+const VALUE_COUNTED_STATUSES: ProjectStatus[] = [
+  "started",
+  "active",
+  "on_hold",
+  "completed",
+  "warranty",
+  "closed",
+];
 
 const num = (d: unknown): number => {
   if (!d) return 0;
@@ -110,14 +122,19 @@ async function loadKpis(
       prisma.project.count({
         where: {
           deletedAt: null,
-          status: "active",
+          status: { in: ["started", "active"] },
           ...projectCreatedFilter,
           ...projectIdFilter,
         },
       }),
       prisma.project.count({ where: deadlineWhere }),
       prisma.project.aggregate({
-        where: { deletedAt: null, ...projectCreatedFilter, ...projectIdFilter },
+        where: {
+          deletedAt: null,
+          status: { in: VALUE_COUNTED_STATUSES },
+          ...projectCreatedFilter,
+          ...projectIdFilter,
+        },
         _sum: { contractValue: true, actualCost: true },
       }),
       prisma.contract.aggregate({

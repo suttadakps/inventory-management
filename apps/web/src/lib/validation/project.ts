@@ -7,7 +7,10 @@ import { z } from "zod";
  */
 
 const PROJECT_STATUSES = [
+  "quotation",
+  "lost",
   "planning",
+  "started",
   "active",
   "on_hold",
   "completed",

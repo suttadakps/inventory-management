@@ -6,14 +6,7 @@ import Link from "next/link";
 import type { ProjectActionState } from "@/lib/projects/actions";
 import type { ProjectOption, UserOption } from "@/lib/projects/repository";
 import { PROJECT_STATUSES } from "@/lib/validation/project";
-const STATUS_TH: Record<string, string> = {
-  planning: "วางแผน",
-  active: "กำลังดำเนินการ",
-  on_hold: "พักงาน",
-  completed: "เสร็จสิ้น",
-  warranty: "รับประกัน",
-  closed: "ปิดงาน",
-};
+import { STATUS_TH } from "@/lib/projects/statusLabels";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
@@ -147,7 +140,7 @@ export function ProjectForm({ mode, action, clients, users, values }: Props) {
           >
             {PROJECT_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {STATUS_TH[s] ?? s}
+                {STATUS_TH[s].label}
               </option>
             ))}
           </Select>

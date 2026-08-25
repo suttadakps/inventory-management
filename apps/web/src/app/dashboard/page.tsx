@@ -28,7 +28,10 @@ function baht(n: number): string {
 }
 
 const STATUS_TH: Record<string, { label: string; cls: string }> = {
+  quotation: { label: "เสนอราคา", cls: "bg-[#efe9dc] text-[#8a7a55]" },
+  lost: { label: "Lost / ไม่ได้งาน", cls: "bg-[#f7e0dc] text-danger" },
   planning: { label: "วางแผน", cls: "bg-[#efe9dc] text-[#8a7a55]" },
+  started: { label: "เริ่มงาน", cls: "bg-[#e3ecf7] text-primary-700" },
   active: { label: "กำลังดำเนินการ", cls: "bg-[#e3ecf7] text-primary-700" },
   on_hold: { label: "พักงาน", cls: "bg-[#fbe4cf] text-[#a9791b]" },
   completed: { label: "เสร็จสิ้น", cls: "bg-[#dcefe4] text-success" },
