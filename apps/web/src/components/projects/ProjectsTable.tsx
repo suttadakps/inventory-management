@@ -55,6 +55,7 @@ export function ProjectsTable({ items }: { items: ProjectListItem[] }) {
                 <td className="px-6 py-4 align-top">
                   <Link
                     href={`/projects/${p.id}`}
+                    prefetch={false}
                     className="font-semibold text-text-primary hover:underline"
                   >
                     {p.name}
