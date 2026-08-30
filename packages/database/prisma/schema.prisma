@@ -649,6 +649,20 @@ model CheckinWorker {
   @@map("checkin_workers")
 }
 
+/// Singleton pointer (id is always "global") to the most recently sent
+/// check-in roll-call, so a plain-text "เพิ่มคนงาน <ชื่อ>" message typed into
+/// the shared LINE group (which has no button/postback data to carry
+/// project+date) knows which project and day it applies to.
+model RollCallState {
+  id          String   @id
+  projectId   String   @map("project_id") @db.Uuid
+  projectName String   @map("project_name")
+  date        DateTime @db.Date
+  sentAt      DateTime @default(now()) @map("sent_at") @db.Timestamptz(6)
+
+  @@map("roll_call_state")
+}
+
 /// One row = this worker was checked in as present on-site for this project
 /// on this date (toggled from either the web checklist or a LINE tap).
 model WorkerAttendance {

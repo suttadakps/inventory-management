@@ -128,6 +128,14 @@ export async function sendLineCheckinMessage(
                 size: "xs",
                 color: "#8a8478",
               },
+              {
+                type: "text",
+                text: 'ถ้าคนงานไม่อยู่ในรายชื่อ พิมพ์ "เพิ่มคนงาน ชื่อ" ในกรุ๊ปนี้ได้เลย',
+                wrap: true,
+                margin: "xs",
+                size: "xs",
+                color: "#8a8478",
+              },
             ],
           },
           footer: {

@@ -113,6 +113,7 @@ export async function sendCheckinRollCallAction(
       dateStr,
       workers
     );
+    await repo.setLastRollCall(project.id, project.name, date);
   } catch {
     return { ok: false, error: "ส่งข้อความไปไลน์ไม่สำเร็จ (ตรวจสอบการตั้งค่า LINE)" };
   }

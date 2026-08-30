@@ -7,15 +7,24 @@ import {
   getProjectTrigger,
   addStatusHistoryEntry,
 } from "@/lib/projects/repository";
-import { toggleAttendance, getAttendanceContext } from "@/lib/attendance/repository";
+import {
+  toggleAttendance,
+  getAttendanceContext,
+  getLastRollCall,
+  addCheckinWorker,
+  ensurePresent,
+} from "@/lib/attendance/repository";
 import { replyLineMessage } from "@/lib/line/client";
 import { formatDateBkk } from "@/lib/format";
 
 /**
- * Real LINE Messaging API webhook. Handles two postback actions: "done" from
- * a trigger reminder's button (see sendLineTriggerMessage in lib/line/client.ts),
- * and "checkin" from a worker roll-call button (see sendLineCheckinMessage) —
- * both mark their state and confirm in-chat.
+ * Real LINE Messaging API webhook. Handles three things: a "done" postback
+ * from a trigger reminder's button (see sendLineTriggerMessage in
+ * lib/line/client.ts), a "checkin" postback from a worker roll-call button
+ * (see sendLineCheckinMessage), and a plain-text "เพิ่มคนงาน <ชื่อ>" message —
+ * LINE buttons can't accept free typing, so a name not already on the roster
+ * is added by typing that command, applied to whichever project's roll-call
+ * went out most recently today (see attendance/repository's RollCallState).
  *
  * Secured with LINE_CHANNEL_SECRET: LINE signs the raw request body with it
  * (HMAC-SHA256, base64) and sends the signature as x-line-signature. Closed
@@ -29,7 +38,10 @@ type LineEvent = {
   type: string;
   replyToken?: string;
   postback?: { data: string };
+  message?: { type: string; text?: string };
 };
+
+const ADD_WORKER_RE = /^เพิ่มคนงาน\s+(.+)$/;
 
 function verifySignature(rawBody: string, signature: string | null): boolean {
   const secret = process.env.LINE_CHANNEL_SECRET;
@@ -69,6 +81,45 @@ export async function POST(req: Request) {
       : [];
 
   for (const event of events) {
+    if (event.type === "message" && event.message?.type === "text") {
+      const match = ADD_WORKER_RE.exec(event.message.text?.trim() ?? "");
+      if (!match) continue;
+      const name = (match[1] ?? "").trim();
+      if (!name) continue;
+
+      try {
+        const todayStr = new Date().toLocaleDateString("en-CA", {
+          timeZone: "Asia/Bangkok",
+        });
+        const last = await getLastRollCall(todayStr);
+        if (!last) {
+          if (event.replyToken) {
+            await replyLineMessage(
+              event.replyToken,
+              `ยังไม่มีการส่งเช็คชื่อวันนี้ กรุณากด "ส่งเช็คชื่อไปไลน์" จากหน้าเว็บโปรเจคก่อน`
+            );
+          }
+          continue;
+        }
+
+        const worker = await addCheckinWorker(name);
+        const date = new Date(`${last.date}T00:00:00Z`);
+        const added = await ensurePresent(last.projectId, worker.id, date, null);
+        revalidatePath(`/projects/${last.projectId}`);
+        if (event.replyToken) {
+          await replyLineMessage(
+            event.replyToken,
+            added
+              ? `✅ เพิ่ม ${worker.name} เข้าหน้างาน ${last.projectName} (${last.date})`
+              : `${worker.name} เข้าหน้างาน ${last.projectName} (${last.date}) อยู่แล้ว`
+          );
+        }
+      } catch {
+        // Best-effort: a failed reply/update here shouldn't fail the whole batch.
+      }
+      continue;
+    }
+
     if (event.type !== "postback" || !event.postback) continue;
     const params = new URLSearchParams(event.postback.data);
     const action = params.get("action");

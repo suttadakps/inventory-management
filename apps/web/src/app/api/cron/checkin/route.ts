@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import {
   listActiveProjectsForRollCall,
   listCheckinWorkers,
+  setLastRollCall,
 } from "@/lib/attendance/repository";
 import { sendLineCheckinMessage } from "@/lib/line/client";
 
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
   const dateStr = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
   });
+  const date = new Date(`${dateStr}T00:00:00Z`);
 
   const [projects, workers] = await Promise.all([
     listActiveProjectsForRollCall(),
@@ -43,6 +45,7 @@ export async function GET(req: Request) {
     for (const project of projects) {
       try {
         await sendLineCheckinMessage(project, dateStr, workers);
+        await setLastRollCall(project.id, project.name, date);
         sent += 1;
       } catch {
         failed += 1;
