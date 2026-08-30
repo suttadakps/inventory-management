@@ -31,3 +31,32 @@ body {
   font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "Segoe UI", Roboto, sans-serif;
 }
+
+/*
+ * Dark "CI blue" theme for the public marketing site only.
+ * Scoped to .marketing-dark so it never touches the internal ERP,
+ * which keeps the light design system defined above.
+ */
+.marketing-dark {
+  --color-primary-700: #14224f;
+  --color-primary-600: #3b7dff;
+  --color-primary-500: #5c96ff;
+  --color-primary-100: #1c2c5c;
+
+  --color-accent-600: #e0691a;
+  --color-accent-100: #3a2510;
+
+  --color-success: #34d399;
+  --color-warning: #fbbf24;
+  --color-danger: #f87171;
+  --color-info: #5c96ff;
+  --color-neutral: #94a3b8;
+
+  --color-bg: #0a1330;
+  --color-surface: #121f4a;
+  --color-border: #263866;
+
+  --color-text-primary: #f5f7fc;
+  --color-text-secondary: #a9b7d9;
+  --color-text-disabled: #5c6a94;
+}

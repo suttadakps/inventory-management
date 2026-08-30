@@ -9,6 +9,8 @@ type CookieToSet = { name: string; value: string; options?: CookieOptions };
  * link (they hold a short-lived recovery session but must be allowed to land).
  */
 const PUBLIC_PATHS = new Set<string>([
+  "/",
+  "/refer",
   "/login",
   "/forgot-password",
   "/reset-password",

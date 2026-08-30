@@ -8,6 +8,39 @@ import * as repo from "./repository";
 
 export type ReferralResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * Public intake from the marketing site's "Refer a Project" form
+ * (no auth — this is meant to be called by anonymous visitors).
+ * `honeypot` is a hidden field real users never fill in; bots that do
+ * are silently dropped without revealing the check.
+ */
+export async function submitPublicReferralAction(input: {
+  referrerName: string;
+  referrerContact?: string;
+  projectTitle: string;
+  details?: string;
+  prospectName?: string;
+  budget?: number;
+  honeypot?: string;
+}): Promise<ReferralResult> {
+  if (input.honeypot) return { ok: true };
+  if (!input.referrerName.trim())
+    return { ok: false, error: "กรุณากรอกชื่อผู้แนะนำ" };
+  if (!input.projectTitle.trim())
+    return { ok: false, error: "กรุณากรอกงานที่แนะนำ" };
+
+  await repo.createReferral({
+    referrerName: input.referrerName.trim().slice(0, 200),
+    referrerContact: input.referrerContact?.trim().slice(0, 200) || undefined,
+    projectTitle: input.projectTitle.trim().slice(0, 300),
+    details: input.details?.trim().slice(0, 2000) || undefined,
+    prospectName: input.prospectName?.trim().slice(0, 200) || undefined,
+    budget: input.budget && input.budget > 0 ? input.budget : undefined,
+    source: "website",
+  });
+  return { ok: true };
+}
+
 const STATUSES: readonly string[] = [
   "new",
   "contacted",

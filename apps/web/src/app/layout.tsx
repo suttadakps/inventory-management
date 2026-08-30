@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
+import { LanguageProvider } from "@/lib/marketing/language-context";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
@@ -37,7 +38,7 @@ export default function RootLayout({
     <html lang="th" className={inter.variable}>
       <body className="min-h-screen bg-bg text-text-primary antialiased">
         <ServiceWorkerRegister />
-        {children}
+        <LanguageProvider>{children}</LanguageProvider>
       </body>
     </html>
   );
