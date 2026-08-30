@@ -40,6 +40,30 @@ export async function toggleAttendance(
   return true;
 }
 
+export type CheckinWorkerItem = { id: string; name: string };
+
+/** The day-crew roster shown as check-in buttons/checkboxes (not the WHT worker roster). */
+export async function listCheckinWorkers(): Promise<CheckinWorkerItem[]> {
+  return prisma.checkinWorker.findMany({
+    where: { active: true },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, name: true },
+  });
+}
+
+/** Add a one-off name typed into the "อื่นๆ" field. Reuses an existing entry if the name already exists. */
+export async function addCheckinWorker(name: string): Promise<CheckinWorkerItem> {
+  const existing = await prisma.checkinWorker.findFirst({
+    where: { name, active: true },
+    select: { id: true, name: true },
+  });
+  if (existing) return existing;
+  return prisma.checkinWorker.create({
+    data: { name },
+    select: { id: true, name: true },
+  });
+}
+
 export type RollCallProject = { id: string; name: string };
 
 /** Projects currently under construction — the daily roll-call goes to these. */
@@ -68,7 +92,7 @@ export async function getAttendanceContext(
       where: { id: projectId },
       select: { name: true },
     }),
-    prisma.worker.findUnique({
+    prisma.checkinWorker.findUnique({
       where: { id: workerId },
       select: { name: true },
     }),

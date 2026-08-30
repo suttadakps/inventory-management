@@ -623,32 +623,44 @@ model VatFiling {
 }
 
 model Worker {
-  id           String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name         String
-  taxId        String?            @map("tax_id")
-  position     String?
-  phone        String?
-  address      String?
-  createdById  String?            @map("created_by") @db.Uuid
-  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
-  attendances  WorkerAttendance[]
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  taxId       String?  @map("tax_id")
+  position    String?
+  phone       String?
+  address     String?
+  createdById String?  @map("created_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   @@map("workers")
+}
+
+/// A lightweight day-crew roster for site check-in — separate from Worker
+/// (which holds formal legal names for WHT/tax documents). Just nicknames
+/// people actually go by on-site, e.g. "พบ", "เดือน", "ชาย".
+model CheckinWorker {
+  id          String             @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String
+  active      Boolean            @default(true)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  attendances WorkerAttendance[]
+
+  @@map("checkin_workers")
 }
 
 /// One row = this worker was checked in as present on-site for this project
 /// on this date (toggled from either the web checklist or a LINE tap).
 model WorkerAttendance {
-  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  projectId   String   @map("project_id") @db.Uuid
-  workerId    String   @map("worker_id") @db.Uuid
-  date        DateTime @db.Date
-  markedAt    DateTime @default(now()) @map("marked_at") @db.Timestamptz(6)
-  createdById String?  @map("created_by") @db.Uuid
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  worker      Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  createdBy   User?    @relation(fields: [createdById], references: [id], onUpdate: NoAction)
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId   String        @map("project_id") @db.Uuid
+  workerId    String        @map("worker_id") @db.Uuid
+  date        DateTime      @db.Date
+  markedAt    DateTime      @default(now()) @map("marked_at") @db.Timestamptz(6)
+  createdById String?       @map("created_by") @db.Uuid
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  worker      CheckinWorker @relation(fields: [workerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  createdBy   User?         @relation(fields: [createdById], references: [id], onUpdate: NoAction)
 
   @@unique([projectId, workerId, date])
   @@index([projectId, date])

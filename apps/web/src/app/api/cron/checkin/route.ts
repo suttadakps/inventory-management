@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { listActiveProjectsForRollCall } from "@/lib/attendance/repository";
-import { listWorkers } from "@/lib/workers/repository";
+import {
+  listActiveProjectsForRollCall,
+  listCheckinWorkers,
+} from "@/lib/attendance/repository";
 import { sendLineCheckinMessage } from "@/lib/line/client";
 
 /**
@@ -32,7 +34,7 @@ export async function GET(req: Request) {
 
   const [projects, workers] = await Promise.all([
     listActiveProjectsForRollCall(),
-    listWorkers(),
+    listCheckinWorkers(),
   ]);
 
   let sent = 0;

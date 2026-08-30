@@ -15,8 +15,7 @@ import {
   listProjectPayments,
   listProjectTriggers,
 } from "@/lib/projects/repository";
-import { listWorkers } from "@/lib/workers/repository";
-import { listAttendance } from "@/lib/attendance/repository";
+import { listCheckinWorkers, listAttendance } from "@/lib/attendance/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
@@ -66,7 +65,7 @@ export default async function ProjectDetailPage({
       listProjectNotes(id),
       listProjectPayments(id),
       listProjectTriggers(id),
-      listWorkers(),
+      listCheckinWorkers(),
       listAttendance(id, new Date(`${todayBkk}T00:00:00Z`)),
     ]);
   const value = project.contractValue ?? 0;

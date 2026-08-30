@@ -6,7 +6,6 @@ import { requireUser } from "@/lib/auth/session";
 import { getProjectForUser } from "@/lib/projects/repository";
 import { canEditProject } from "@/lib/projects/permissions";
 import { sendLineCheckinMessage } from "@/lib/line/client";
-import { listWorkers } from "@/lib/workers/repository";
 import * as repo from "./repository";
 
 export type InlineResult = { ok: true } | { ok: false; error: string };
@@ -57,7 +56,39 @@ export async function toggleAttendanceAction(
   return { ok: true };
 }
 
-/** Push the worker roll-call (all workers, as tap-to-check buttons) into the LINE group. */
+export type AddWorkerResult =
+  | { ok: true; worker: repo.CheckinWorkerItem }
+  | { ok: false; error: string };
+
+/** Add a name typed into the "อื่นๆ" field and mark them present right away. */
+export async function addCheckinWorkerAction(
+  projectId: string,
+  dateStr: string,
+  name: string
+): Promise<AddWorkerResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEdit(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const trimmed = name.trim();
+  if (!trimmed) return { ok: false, error: "กรุณากรอกชื่อ" };
+
+  const date = parseDate(dateStr);
+  if (!date) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
+
+  const worker = await repo.addCheckinWorker(trimmed);
+  await repo.toggleAttendance(projectId, worker.id, date, user.id);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: true, worker };
+}
+
+/** Re-fetch the day-crew roster (used after adding a new "อื่นๆ" name). */
+export async function listCheckinWorkersAction(): Promise<repo.CheckinWorkerItem[]> {
+  await requireUser();
+  return repo.listCheckinWorkers();
+}
+
+/** Push the worker roll-call (day-crew roster, as tap-to-check buttons) into the LINE group. */
 export async function sendCheckinRollCallAction(
   projectId: string,
   dateStr: string
@@ -72,7 +103,7 @@ export async function sendCheckinRollCallAction(
   const project = await getProjectForUser(user, projectId);
   if (!project) return { ok: false, error: "ไม่พบโปรเจค" };
 
-  const workers = await listWorkers();
+  const workers = await repo.listCheckinWorkers();
   if (workers.length === 0)
     return { ok: false, error: "ยังไม่มีรายชื่อคนงานในระบบ" };
 
@@ -80,7 +111,7 @@ export async function sendCheckinRollCallAction(
     await sendLineCheckinMessage(
       { id: project.id, name: project.name },
       dateStr,
-      workers.map((w) => ({ id: w.id, name: w.name }))
+      workers
     );
   } catch {
     return { ok: false, error: "ส่งข้อความไปไลน์ไม่สำเร็จ (ตรวจสอบการตั้งค่า LINE)" };
