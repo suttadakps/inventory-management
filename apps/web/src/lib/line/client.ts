@@ -80,6 +80,78 @@ export async function sendLineTriggerMessage(
   });
 }
 
+/**
+ * Push a worker roll-call as a Flex bubble: one button per worker, each a
+ * postback that toggles that worker's attendance for this project + date.
+ * Whoever's in the group taps the names of people who showed up on site.
+ */
+export async function sendLineCheckinMessage(
+  project: { id: string; name: string },
+  date: string,
+  workers: { id: string; name: string }[]
+): Promise<void> {
+  const groupId = process.env.LINE_GROUP_ID;
+  if (!groupId) throw new Error("LINE not configured");
+
+  const altText = `เช็คชื่อคนงาน ${project.name} วันที่ ${date}`.slice(0, 400);
+  await linePost("push", {
+    to: groupId,
+    messages: [
+      {
+        type: "flex",
+        altText,
+        contents: {
+          type: "bubble",
+          body: {
+            type: "box",
+            layout: "vertical",
+            contents: [
+              {
+                type: "text",
+                text: project.name,
+                weight: "bold",
+                size: "sm",
+                color: "#1b4f91",
+              },
+              {
+                type: "text",
+                text: `เช็คชื่อคนงานเข้าหน้างาน — ${date}`,
+                wrap: true,
+                margin: "md",
+                size: "sm",
+              },
+              {
+                type: "text",
+                text: "แตะชื่อคนงานที่เข้าหน้างานวันนี้",
+                wrap: true,
+                margin: "sm",
+                size: "xs",
+                color: "#8a8478",
+              },
+            ],
+          },
+          footer: {
+            type: "box",
+            layout: "vertical",
+            spacing: "sm",
+            contents: workers.map((w) => ({
+              type: "button",
+              style: "secondary",
+              height: "sm",
+              action: {
+                type: "postback",
+                label: w.name.slice(0, 20),
+                data: `action=checkin&project=${project.id}&worker=${w.id}&date=${date}`,
+                displayText: w.name,
+              },
+            })),
+          },
+        },
+      },
+    ],
+  });
+}
+
 /** Reply to a LINE event using its one-time replyToken. */
 export async function replyLineMessage(
   replyToken: string,

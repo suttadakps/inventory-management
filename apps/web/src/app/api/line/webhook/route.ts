@@ -7,13 +7,15 @@ import {
   getProjectTrigger,
   addStatusHistoryEntry,
 } from "@/lib/projects/repository";
+import { toggleAttendance, getAttendanceContext } from "@/lib/attendance/repository";
 import { replyLineMessage } from "@/lib/line/client";
 import { formatDateBkk } from "@/lib/format";
 
 /**
- * Real LINE Messaging API webhook. Currently handles one thing: a postback
- * from the "Done" button on a trigger reminder (see sendLineTriggerMessage
- * in lib/line/client.ts), which marks that trigger done and confirms in-chat.
+ * Real LINE Messaging API webhook. Handles two postback actions: "done" from
+ * a trigger reminder's button (see sendLineTriggerMessage in lib/line/client.ts),
+ * and "checkin" from a worker roll-call button (see sendLineCheckinMessage) —
+ * both mark their state and confirm in-chat.
  *
  * Secured with LINE_CHANNEL_SECRET: LINE signs the raw request body with it
  * (HMAC-SHA256, base64) and sends the signature as x-line-signature. Closed
@@ -69,7 +71,40 @@ export async function POST(req: Request) {
   for (const event of events) {
     if (event.type !== "postback" || !event.postback) continue;
     const params = new URLSearchParams(event.postback.data);
-    if (params.get("action") !== "done") continue;
+    const action = params.get("action");
+
+    if (action === "checkin") {
+      const projectId = params.get("project");
+      const workerId = params.get("worker");
+      const date = params.get("date");
+      if (!projectId || !workerId || !date) continue;
+
+      try {
+        const ctx = await getAttendanceContext(projectId, workerId);
+        if (!ctx) continue;
+
+        const present = await toggleAttendance(
+          projectId,
+          workerId,
+          new Date(`${date}T00:00:00Z`),
+          null
+        );
+        revalidatePath(`/projects/${projectId}`);
+        if (event.replyToken) {
+          await replyLineMessage(
+            event.replyToken,
+            present
+              ? `✅ ${ctx.workerName} เข้าหน้างาน ${ctx.projectName} (${date})`
+              : `ยกเลิกเช็คชื่อ ${ctx.workerName} — ${ctx.projectName} (${date})`
+          );
+        }
+      } catch {
+        // Best-effort: a failed reply/update here shouldn't fail the whole batch.
+      }
+      continue;
+    }
+
+    if (action !== "done") continue;
     const id = params.get("id");
     if (!id) continue;
 

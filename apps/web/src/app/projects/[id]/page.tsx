@@ -15,6 +15,8 @@ import {
   listProjectPayments,
   listProjectTriggers,
 } from "@/lib/projects/repository";
+import { listWorkers } from "@/lib/workers/repository";
+import { listAttendance } from "@/lib/attendance/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
@@ -23,6 +25,7 @@ import { ProjectProgressControl } from "@/components/projects/ProjectProgressCon
 import { ProjectNotes } from "@/components/projects/ProjectNotes";
 import { ProjectPayments } from "@/components/projects/ProjectPayments";
 import { ProjectTriggers } from "@/components/projects/ProjectTriggers";
+import { ProjectAttendance } from "@/components/projects/ProjectAttendance";
 import { ProjectStatusTimeline } from "@/components/projects/ProjectStatusTimeline";
 import {
   ArchiveProjectButton,
@@ -53,13 +56,19 @@ export default async function ProjectDetailPage({
   const project = await getProjectForUser(user, id);
   if (!project) notFound();
 
-  const [received, history, notes, payments, triggers] = await Promise.all([
-    sumProjectIncoming(id),
-    listStatusHistory(id),
-    listProjectNotes(id),
-    listProjectPayments(id),
-    listProjectTriggers(id),
-  ]);
+  const todayBkk = new Date().toLocaleDateString("en-CA", {
+    timeZone: "Asia/Bangkok",
+  });
+  const [received, history, notes, payments, triggers, workers, attendance] =
+    await Promise.all([
+      sumProjectIncoming(id),
+      listStatusHistory(id),
+      listProjectNotes(id),
+      listProjectPayments(id),
+      listProjectTriggers(id),
+      listWorkers(),
+      listAttendance(id, new Date(`${todayBkk}T00:00:00Z`)),
+    ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
   const profit = value - project.actualCost;
@@ -172,6 +181,19 @@ export default async function ProjectDetailPage({
         <ProjectPayments
           projectId={project.id}
           payments={payments}
+          canEdit={canEdit && !project.archived}
+        />
+      </ContentCard>
+
+      {/* Worker check-in / attendance */}
+      <ContentCard className="p-6">
+        <h3 className="mb-4 text-h3 font-semibold text-text-primary">
+          เช็คชื่อคนงานหน้างาน
+        </h3>
+        <ProjectAttendance
+          projectId={project.id}
+          workers={workers}
+          initialPresentIds={attendance.map((a) => a.workerId)}
           canEdit={canEdit && !project.archived}
         />
       </ContentCard>
