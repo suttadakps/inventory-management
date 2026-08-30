@@ -233,3 +233,41 @@ export async function getWageForWht(id: string): Promise<WhtSourceSeed | null> {
     suggestedPayeeName: row.workerName,
   };
 }
+
+// ---- Auto-numbering (เล่มที่ / เลขที่) ---------------------------------------
+
+/** Highest numeric doc number already used within a given book (0 if none/
+ * non-numeric — เลขที่ is free text, but in practice is always numeric). */
+async function maxDocNoInBook(bookNo: string): Promise<number> {
+  const rows = await prisma.whtCertificate.findMany({
+    where: { bookNo },
+    select: { docNo: true },
+  });
+  let max = 0;
+  for (const r of rows) {
+    const n = r.docNo ? parseInt(r.docNo, 10) : NaN;
+    if (!Number.isNaN(n) && n > max) max = n;
+  }
+  return max;
+}
+
+/**
+ * Next {bookNo, docNo} to issue. `bookNoHint` lets the caller pin a specific
+ * book (e.g. the value the user picked in the form); otherwise this
+ * continues whichever book was most recently used (defaulting to book "1"
+ * for the very first certificate). เลขที่ always starts at 1 in a new book.
+ */
+export async function getNextWhtNumber(
+  bookNoHint?: string | null
+): Promise<{ bookNo: string; docNo: string }> {
+  let bookNo = bookNoHint?.trim() || "";
+  if (!bookNo) {
+    const latest = await prisma.whtCertificate.findFirst({
+      orderBy: { createdAt: "desc" },
+      select: { bookNo: true },
+    });
+    bookNo = latest?.bookNo?.trim() || "1";
+  }
+  const nextDoc = (await maxDocNoInBook(bookNo)) + 1;
+  return { bookNo, docNo: String(nextDoc) };
+}

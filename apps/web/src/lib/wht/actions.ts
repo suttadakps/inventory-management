@@ -94,6 +94,14 @@ export async function createWhtCertificateAction(
   const parsed = toRepoInput(input);
   if ("error" in parsed) return { ok: false, error: parsed.error };
 
+  // Document numbering is auto-run server-side: เล่มที่ follows whatever the
+  // form submitted (or continues the current book), and เลขที่ is always the
+  // next number in that book — whatever the client sent for docNo is ignored,
+  // so numbers can't be typed in wrong or duplicated.
+  const next = await repo.getNextWhtNumber(parsed.bookNo);
+  parsed.bookNo = next.bookNo;
+  parsed.docNo = next.docNo;
+
   const id = await repo.createWhtCertificate(parsed, user.id);
   revalidatePath("/wht");
   return { ok: true, id };

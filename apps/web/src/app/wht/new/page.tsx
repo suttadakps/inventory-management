@@ -8,6 +8,7 @@ import {
   getExpenseForWht,
   getDisbursementForWht,
   getWageForWht,
+  getNextWhtNumber,
 } from "@/lib/wht/repository";
 import { listProjects } from "@/lib/projects/repository";
 import { listWorkers } from "@/lib/workers/repository";
@@ -26,12 +27,17 @@ export default async function WhtNewPage({
   if (!canManageWht(user.role)) notFound();
 
   const sp = await searchParams;
-  const [projects, workers] = await Promise.all([
+  const [projects, workers, nextNumber] = await Promise.all([
     listProjects(user, {}),
     listWorkers(),
+    getNextWhtNumber(),
   ]);
 
-  let initial: Partial<WhtFormInput> = { signerName: user.fullName ?? "" };
+  let initial: Partial<WhtFormInput> = {
+    signerName: user.fullName ?? "",
+    bookNo: nextNumber.bookNo,
+    docNo: nextNumber.docNo,
+  };
   let sourceNote: string | undefined;
 
   if (sp.source === "expense" && sp.id) {

@@ -147,14 +147,28 @@ export function WhtCertificateForm({
             onChange={(e) => set("bookNo", e.target.value)}
             className={inputCls}
           />
+          {mode === "create" && (
+            <p className="text-caption text-text-secondary">
+              เปลี่ยนเลขเล่มเพื่อเริ่มเล่มใหม่ (เลขที่จะเริ่มนับ 1 ใหม่)
+            </p>
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>เลขที่</Label>
-          <Input
-            value={form.docNo}
-            onChange={(e) => set("docNo", e.target.value)}
-            className={inputCls}
-          />
+          {mode === "create" ? (
+            <>
+              <Input value={form.docNo} disabled className={inputCls} />
+              <p className="text-caption text-text-secondary">
+                ระบบรันเลขที่ให้อัตโนมัติตามเล่มที่ ณ ตอนบันทึก
+              </p>
+            </>
+          ) : (
+            <Input
+              value={form.docNo}
+              onChange={(e) => set("docNo", e.target.value)}
+              className={inputCls}
+            />
+          )}
         </div>
         <div className="space-y-1.5">
           <Label>เลขประจำตัวผู้เสียภาษี (บริษัท)</Label>
