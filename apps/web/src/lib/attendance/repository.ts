@@ -178,6 +178,31 @@ export async function listAttendanceHistory(
     .map(([date, workerNames]) => ({ date, workerNames }));
 }
 
+/** Rename a roster entry and relabel their auto-synced wage entries to match
+ * (never touches manually entered wage rows under the same old name). */
+export async function renameCheckinWorker(
+  workerId: string,
+  newName: string
+): Promise<CheckinWorkerItem | null> {
+  const worker = await prisma.checkinWorker.findUnique({
+    where: { id: workerId },
+    select: { id: true, name: true },
+  });
+  if (!worker) return null;
+  if (worker.name === newName) return worker;
+
+  const updated = await prisma.checkinWorker.update({
+    where: { id: workerId },
+    data: { name: newName },
+    select: { id: true, name: true },
+  });
+  await prisma.wageEntry.updateMany({
+    where: { workerName: worker.name, note: AUTO_WAGE_NOTE },
+    data: { workerName: newName },
+  });
+  return updated;
+}
+
 export type RollCallProject = { id: string; name: string };
 
 /** Projects currently under construction — the daily roll-call goes to these. */

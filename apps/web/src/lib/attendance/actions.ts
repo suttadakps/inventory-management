@@ -67,6 +67,31 @@ export async function getAttendanceHistoryAction(
   return repo.listAttendanceHistory(projectId);
 }
 
+export type RenameWorkerResult =
+  | { ok: true; worker: repo.CheckinWorkerItem }
+  | { ok: false; error: string };
+
+/** Rename a roster entry from the project checklist (e.g. fixing a typo). */
+export async function renameCheckinWorkerAction(
+  projectId: string,
+  workerId: string,
+  newName: string
+): Promise<RenameWorkerResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEdit(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const trimmed = newName.trim();
+  if (!trimmed) return { ok: false, error: "กรุณากรอกชื่อ" };
+
+  const worker = await repo.renameCheckinWorker(workerId, trimmed);
+  if (!worker) return { ok: false, error: "ไม่พบคนงาน" };
+
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/wages");
+  return { ok: true, worker };
+}
+
 export type AddWorkerResult =
   | { ok: true; worker: repo.CheckinWorkerItem }
   | { ok: false; error: string };

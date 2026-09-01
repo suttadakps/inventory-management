@@ -9,6 +9,7 @@ import {
   addCheckinWorkerAction,
   listCheckinWorkersAction,
   getAttendanceHistoryAction,
+  renameCheckinWorkerAction,
 } from "@/lib/attendance/actions";
 import type { CheckinWorkerItem, AttendanceHistoryDay } from "@/lib/attendance/repository";
 
@@ -47,6 +48,8 @@ export function ProjectAttendance({
   const [notice, setNotice] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("");
   const [addingOther, setAddingOther] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState("");
 
   const refreshHistory = () => {
     getAttendanceHistoryAction(projectId).then(setHistory);
@@ -114,6 +117,31 @@ export function ProjectAttendance({
     });
   };
 
+  const startEdit = (w: CheckinWorkerItem) => {
+    setEditingId(w.id);
+    setEditValue(w.name);
+  };
+
+  const saveEdit = (workerId: string) => {
+    const trimmed = editValue.trim();
+    if (!trimmed) {
+      setEditingId(null);
+      return;
+    }
+    startTransition(async () => {
+      const res = await renameCheckinWorkerAction(projectId, workerId, trimmed);
+      if (res.ok) {
+        setWorkers((prev) =>
+          prev.map((w) => (w.id === workerId ? res.worker : w))
+        );
+        refreshHistory();
+      } else {
+        setNotice(res.error);
+      }
+      setEditingId(null);
+    });
+  };
+
   const sendRollCall = () => {
     setSending(true);
     setNotice(null);
@@ -161,9 +189,32 @@ export function ProjectAttendance({
         <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5 sm:grid-cols-3">
           {workers.map((w) => {
             const present = presentIds.has(w.id);
+            if (editingId === w.id) {
+              return (
+                <li key={w.id} className="flex items-center gap-1.5">
+                  <input
+                    autoFocus
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") saveEdit(w.id);
+                      if (e.key === "Escape") setEditingId(null);
+                    }}
+                    className="h-8 min-w-0 flex-1 rounded-md border border-primary-600 px-2 text-body-sm text-text-primary focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => saveEdit(w.id)}
+                    className="shrink-0 text-body-sm text-primary-700 hover:underline"
+                  >
+                    บันทึก
+                  </button>
+                </li>
+              );
+            }
             return (
-              <li key={w.id}>
-                <label className="flex items-center gap-2 text-body-sm text-text-primary">
+              <li key={w.id} className="flex items-center gap-1.5">
+                <label className="flex min-w-0 items-center gap-2 text-body-sm text-text-primary">
                   <input
                     type="checkbox"
                     checked={present}
@@ -171,10 +222,22 @@ export function ProjectAttendance({
                     onChange={() => toggle(w.id)}
                     className="h-4 w-4 shrink-0 accent-primary-700"
                   />
-                  <span className={present ? "text-text-primary" : "text-text-secondary"}>
+                  <span
+                    className={`truncate ${present ? "text-text-primary" : "text-text-secondary"}`}
+                  >
                     {w.name}
                   </span>
                 </label>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => startEdit(w)}
+                    aria-label={`แก้ไขชื่อ ${w.name}`}
+                    className="shrink-0 text-caption text-text-secondary hover:text-primary-700 hover:underline"
+                  >
+                    แก้ไข
+                  </button>
+                )}
               </li>
             );
           })}
