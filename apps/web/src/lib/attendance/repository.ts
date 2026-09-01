@@ -5,6 +5,70 @@ export type AttendanceMark = {
   markedAt: string;
 };
 
+/** Marks a wage entry as auto-generated from check-in, so un-checking someone
+ * can safely remove it again without touching a manually entered/paid row. */
+const AUTO_WAGE_NOTE = "สร้างจากระบบเช็คชื่อ";
+
+async function createAutoWage(
+  projectId: string,
+  workerId: string,
+  date: Date,
+  actorId: string | null
+): Promise<void> {
+  const worker = await prisma.checkinWorker.findUnique({
+    where: { id: workerId },
+    select: { name: true, dailyRate: true },
+  });
+  if (!worker) return;
+
+  const existing = await prisma.wageEntry.findFirst({
+    where: {
+      projectId,
+      workerName: worker.name,
+      workDate: date,
+      note: AUTO_WAGE_NOTE,
+    },
+    select: { id: true },
+  });
+  if (existing) return;
+
+  await prisma.wageEntry.create({
+    data: {
+      projectId,
+      workerName: worker.name,
+      daysWorked: 1,
+      amount: worker.dailyRate ?? 0,
+      workDate: date,
+      status: "unpaid",
+      note: AUTO_WAGE_NOTE,
+      createdById: actorId,
+    },
+  });
+}
+
+async function removeAutoWage(
+  projectId: string,
+  workerId: string,
+  date: Date
+): Promise<void> {
+  const worker = await prisma.checkinWorker.findUnique({
+    where: { id: workerId },
+    select: { name: true },
+  });
+  if (!worker) return;
+
+  // Never touch a wage row already marked paid, even if it was auto-created.
+  await prisma.wageEntry.deleteMany({
+    where: {
+      projectId,
+      workerName: worker.name,
+      workDate: date,
+      note: AUTO_WAGE_NOTE,
+      status: "unpaid",
+    },
+  });
+}
+
 /** Workers marked present for a project on a given date. */
 export async function listAttendance(
   projectId: string,
@@ -20,7 +84,8 @@ export async function listAttendance(
   }));
 }
 
-/** Toggle a worker's presence for a project on a date. Returns the new state. */
+/** Toggle a worker's presence for a project on a date, syncing a matching
+ * wage entry (สรุปค่าแรง) at the worker's daily rate. Returns the new state. */
 export async function toggleAttendance(
   projectId: string,
   workerId: string,
@@ -32,11 +97,13 @@ export async function toggleAttendance(
   });
   if (existing) {
     await prisma.workerAttendance.delete({ where: { id: existing.id } });
+    await removeAutoWage(projectId, workerId, date);
     return false;
   }
   await prisma.workerAttendance.create({
     data: { projectId, workerId, date, createdById: actorId },
   });
+  await createAutoWage(projectId, workerId, date, actorId);
   return true;
 }
 
@@ -55,6 +122,7 @@ export async function ensurePresent(
   await prisma.workerAttendance.create({
     data: { projectId, workerId, date, createdById: actorId },
   });
+  await createAutoWage(projectId, workerId, date, actorId);
   return true;
 }
 
@@ -80,6 +148,34 @@ export async function addCheckinWorker(name: string): Promise<CheckinWorkerItem>
     data: { name },
     select: { id: true, name: true },
   });
+}
+
+export type AttendanceHistoryDay = { date: string; workerNames: string[] };
+
+/** Past check-in days for a project, most recent first, for the history log. */
+export async function listAttendanceHistory(
+  projectId: string,
+  limit = 30
+): Promise<AttendanceHistoryDay[]> {
+  const rows = await prisma.workerAttendance.findMany({
+    where: { projectId },
+    orderBy: { date: "desc" },
+    include: { worker: { select: { name: true } } },
+    take: 500,
+  });
+
+  const byDate = new Map<string, string[]>();
+  for (const r of rows) {
+    const dateStr = r.date.toISOString().slice(0, 10);
+    const names = byDate.get(dateStr);
+    if (names) names.push(r.worker.name);
+    else byDate.set(dateStr, [r.worker.name]);
+  }
+
+  return Array.from(byDate.entries())
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .slice(0, limit)
+    .map(([date, workerNames]) => ({ date, workerNames }));
 }
 
 export type RollCallProject = { id: string; name: string };

@@ -106,6 +106,7 @@ export async function POST(req: Request) {
         const date = new Date(`${last.date}T00:00:00Z`);
         const added = await ensurePresent(last.projectId, worker.id, date, null);
         revalidatePath(`/projects/${last.projectId}`);
+        revalidatePath("/wages");
         if (event.replyToken) {
           await replyLineMessage(
             event.replyToken,
@@ -141,6 +142,7 @@ export async function POST(req: Request) {
           null
         );
         revalidatePath(`/projects/${projectId}`);
+        revalidatePath("/wages");
         if (event.replyToken) {
           await replyLineMessage(
             event.replyToken,

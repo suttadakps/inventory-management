@@ -53,7 +53,18 @@ export async function toggleAttendanceAction(
 
   await repo.toggleAttendance(projectId, workerId, date, user.id);
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/wages");
   return { ok: true };
+}
+
+/** Re-fetch a project's check-in history (used after a toggle/add so the log stays current). */
+export async function getAttendanceHistoryAction(
+  projectId: string
+): Promise<repo.AttendanceHistoryDay[]> {
+  const user = await requireUser();
+  const project = await getProjectForUser(user, projectId);
+  if (!project) return [];
+  return repo.listAttendanceHistory(projectId);
 }
 
 export type AddWorkerResult =
@@ -79,6 +90,7 @@ export async function addCheckinWorkerAction(
   const worker = await repo.addCheckinWorker(trimmed);
   await repo.toggleAttendance(projectId, worker.id, date, user.id);
   revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/wages");
   return { ok: true, worker };
 }
 

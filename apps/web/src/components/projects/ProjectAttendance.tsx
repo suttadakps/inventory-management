@@ -8,22 +8,32 @@ import {
   getAttendanceAction,
   addCheckinWorkerAction,
   listCheckinWorkersAction,
+  getAttendanceHistoryAction,
 } from "@/lib/attendance/actions";
-import type { CheckinWorkerItem } from "@/lib/attendance/repository";
+import type { CheckinWorkerItem, AttendanceHistoryDay } from "@/lib/attendance/repository";
 
 const POLL_MS = 10_000;
 
 const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 
+const historyDateFmt = new Intl.DateTimeFormat("th-TH", {
+  day: "numeric",
+  month: "short",
+  year: "2-digit",
+  timeZone: "Asia/Bangkok",
+});
+
 export function ProjectAttendance({
   projectId,
   workers: initialWorkers,
   initialPresentIds,
+  initialHistory,
   canEdit,
 }: {
   projectId: string;
   workers: CheckinWorkerItem[];
   initialPresentIds: string[];
+  initialHistory: AttendanceHistoryDay[];
   canEdit: boolean;
 }) {
   const [, startTransition] = useTransition();
@@ -32,10 +42,15 @@ export function ProjectAttendance({
   const [presentIds, setPresentIds] = useState<Set<string>>(
     new Set(initialPresentIds)
   );
+  const [history, setHistory] = useState(initialHistory);
   const [sending, setSending] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [otherName, setOtherName] = useState("");
   const [addingOther, setAddingOther] = useState(false);
+
+  const refreshHistory = () => {
+    getAttendanceHistoryAction(projectId).then(setHistory);
+  };
 
   // Reload attendance whenever the selected date changes.
   const dateRef = useRef(date);
@@ -53,12 +68,14 @@ export function ProjectAttendance({
   // Poll so a tap in LINE (or a name added from another tab) shows up here.
   useEffect(() => {
     const interval = setInterval(async () => {
-      const [rows, latestWorkers] = await Promise.all([
+      const [rows, latestWorkers, latestHistory] = await Promise.all([
         getAttendanceAction(projectId, dateRef.current),
         listCheckinWorkersAction(),
+        getAttendanceHistoryAction(projectId),
       ]);
       setPresentIds(new Set(rows.map((r) => r.workerId)));
       setWorkers(latestWorkers);
+      setHistory(latestHistory);
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [projectId]);
@@ -73,6 +90,7 @@ export function ProjectAttendance({
     });
     startTransition(async () => {
       await toggleAttendanceAction(projectId, workerId, date);
+      refreshHistory();
     });
   };
 
@@ -89,6 +107,7 @@ export function ProjectAttendance({
           prev.some((w) => w.id === res.worker.id) ? prev : [...prev, res.worker]
         );
         setPresentIds((prev) => new Set(prev).add(res.worker.id));
+        refreshHistory();
       } else {
         setNotice(res.error);
       }
@@ -131,6 +150,9 @@ export function ProjectAttendance({
           เข้าหน้างาน {presentIds.size} / {workers.length} คน
         </span>
       </div>
+      <p className="text-caption text-text-secondary">
+        เช็คชื่อแล้วจะบันทึกลงสรุปค่าแรง (/wages) ให้อัตโนมัติ
+      </p>
       {notice && <p className="text-caption text-text-secondary">{notice}</p>}
 
       {workers.length === 0 ? (
@@ -180,6 +202,31 @@ export function ProjectAttendance({
           </button>
         </div>
       )}
+
+      <div className="border-t border-[#f0ece2] pt-3">
+        <h4 className="mb-2 text-body-sm font-medium text-text-primary">
+          ประวัติการเช็คชื่อ
+        </h4>
+        {history.length === 0 ? (
+          <p className="text-caption text-text-secondary">ยังไม่มีประวัติ</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {history.map((day) => (
+              <li key={day.date} className="text-body-sm">
+                <span className="text-text-secondary">
+                  {historyDateFmt.format(new Date(`${day.date}T00:00:00Z`))}
+                </span>{" "}
+                <span className="text-text-primary">
+                  {day.workerNames.join(", ")}
+                </span>{" "}
+                <span className="text-caption text-text-secondary">
+                  ({day.workerNames.length} คน)
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

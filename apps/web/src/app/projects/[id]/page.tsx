@@ -15,7 +15,11 @@ import {
   listProjectPayments,
   listProjectTriggers,
 } from "@/lib/projects/repository";
-import { listCheckinWorkers, listAttendance } from "@/lib/attendance/repository";
+import {
+  listCheckinWorkers,
+  listAttendance,
+  listAttendanceHistory,
+} from "@/lib/attendance/repository";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { MetricCard } from "@/components/ui/MetricCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
@@ -58,16 +62,25 @@ export default async function ProjectDetailPage({
   const todayBkk = new Date().toLocaleDateString("en-CA", {
     timeZone: "Asia/Bangkok",
   });
-  const [received, history, notes, payments, triggers, workers, attendance] =
-    await Promise.all([
-      sumProjectIncoming(id),
-      listStatusHistory(id),
-      listProjectNotes(id),
-      listProjectPayments(id),
-      listProjectTriggers(id),
-      listCheckinWorkers(),
-      listAttendance(id, new Date(`${todayBkk}T00:00:00Z`)),
-    ]);
+  const [
+    received,
+    history,
+    notes,
+    payments,
+    triggers,
+    workers,
+    attendance,
+    attendanceHistory,
+  ] = await Promise.all([
+    sumProjectIncoming(id),
+    listStatusHistory(id),
+    listProjectNotes(id),
+    listProjectPayments(id),
+    listProjectTriggers(id),
+    listCheckinWorkers(),
+    listAttendance(id, new Date(`${todayBkk}T00:00:00Z`)),
+    listAttendanceHistory(id),
+  ]);
   const value = project.contractValue ?? 0;
   const outstanding = Math.max(0, value - received);
   const profit = value - project.actualCost;
@@ -193,6 +206,7 @@ export default async function ProjectDetailPage({
           projectId={project.id}
           workers={workers}
           initialPresentIds={attendance.map((a) => a.workerId)}
+          initialHistory={attendanceHistory}
           canEdit={canEdit && !project.archived}
         />
       </ContentCard>
