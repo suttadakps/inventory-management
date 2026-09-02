@@ -69,6 +69,22 @@ async function removeAutoWage(
   });
 }
 
+/** Delete an entire day's check-in (every worker marked present that day),
+ * removing their auto-synced wage entries too (already-paid ones are kept). */
+export async function deleteAttendanceDay(
+  projectId: string,
+  date: Date
+): Promise<void> {
+  const rows = await prisma.workerAttendance.findMany({
+    where: { projectId, date },
+    select: { workerId: true },
+  });
+  for (const r of rows) {
+    await removeAutoWage(projectId, r.workerId, date);
+  }
+  await prisma.workerAttendance.deleteMany({ where: { projectId, date } });
+}
+
 /** Workers marked present for a project on a given date. */
 export async function listAttendance(
   projectId: string,

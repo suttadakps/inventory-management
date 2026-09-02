@@ -10,6 +10,7 @@ import {
   listCheckinWorkersAction,
   getAttendanceHistoryAction,
   renameCheckinWorkerAction,
+  deleteAttendanceDayAction,
 } from "@/lib/attendance/actions";
 import type { CheckinWorkerItem, AttendanceHistoryDay } from "@/lib/attendance/repository";
 
@@ -158,6 +159,16 @@ export function ProjectAttendance({
     checklistRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  const deleteDay = (day: string) => {
+    startTransition(async () => {
+      await deleteAttendanceDayAction(projectId, day);
+      refreshHistory();
+      if (day === dateRef.current) {
+        setPresentIds(new Set());
+      }
+    });
+  };
+
   const inputCls =
     "h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none";
 
@@ -298,6 +309,16 @@ export function ProjectAttendance({
                     className="shrink-0 text-caption text-primary-700 hover:underline"
                   >
                     แก้ไข
+                  </button>
+                )}
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => deleteDay(day.date)}
+                    aria-label={`ลบประวัติการเช็คชื่อวันที่ ${day.date}`}
+                    className="shrink-0 text-caption text-text-secondary hover:text-danger hover:underline"
+                  >
+                    ลบ
                   </button>
                 )}
               </li>

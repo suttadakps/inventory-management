@@ -57,6 +57,24 @@ export async function toggleAttendanceAction(
   return { ok: true };
 }
 
+/** Delete an entire day's check-in from the history log, and its auto-synced wage entries. */
+export async function deleteAttendanceDayAction(
+  projectId: string,
+  dateStr: string
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEdit(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const date = parseDate(dateStr);
+  if (!date) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
+
+  await repo.deleteAttendanceDay(projectId, date);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
 /** Re-fetch a project's check-in history (used after a toggle/add so the log stays current). */
 export async function getAttendanceHistoryAction(
   projectId: string
