@@ -75,6 +75,42 @@ export async function deleteAttendanceDayAction(
   return { ok: true };
 }
 
+/** Re-fetch whether the given date is currently marked "หยุดงาน" for this project. */
+export async function getNoWorkDayAction(
+  projectId: string,
+  dateStr: string
+): Promise<boolean> {
+  const user = await requireUser();
+  const project = await getProjectForUser(user, projectId);
+  const date = parseDate(dateStr);
+  if (!project || !date) return false;
+  return repo.isNoWorkDay(projectId, date);
+}
+
+/** Mark/unmark a date as "หยุดงาน" — marking clears any attendance already
+ * recorded for that date, since the two states are mutually exclusive. */
+export async function setNoWorkDayAction(
+  projectId: string,
+  dateStr: string,
+  noWork: boolean
+): Promise<InlineResult> {
+  const user = await requireUser();
+  if (!(await ensureCanEdit(user, projectId)))
+    return { ok: false, error: "ไม่มีสิทธิ์แก้ไขโปรเจคนี้" };
+
+  const date = parseDate(dateStr);
+  if (!date) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
+
+  if (noWork) {
+    await repo.markNoWorkDay(projectId, date, user.id);
+  } else {
+    await repo.unmarkNoWorkDay(projectId, date);
+  }
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
 /** Re-fetch a project's check-in history (used after a toggle/add so the log stays current). */
 export async function getAttendanceHistoryAction(
   projectId: string

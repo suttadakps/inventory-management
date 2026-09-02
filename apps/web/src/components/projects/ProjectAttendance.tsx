@@ -11,6 +11,8 @@ import {
   getAttendanceHistoryAction,
   renameCheckinWorkerAction,
   deleteAttendanceDayAction,
+  getNoWorkDayAction,
+  setNoWorkDayAction,
 } from "@/lib/attendance/actions";
 import type { CheckinWorkerItem, AttendanceHistoryDay } from "@/lib/attendance/repository";
 
@@ -51,6 +53,8 @@ export function ProjectAttendance({
   const [addingOther, setAddingOther] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [noWork, setNoWork] = useState(false);
+  const [togglingNoWork, setTogglingNoWork] = useState(false);
   const checklistRef = useRef<HTMLDivElement>(null);
 
   const refreshHistory = () => {
@@ -65,6 +69,9 @@ export function ProjectAttendance({
     getAttendanceAction(projectId, date).then((rows) => {
       if (!cancelled) setPresentIds(new Set(rows.map((r) => r.workerId)));
     });
+    getNoWorkDayAction(projectId, date).then((v) => {
+      if (!cancelled) setNoWork(v);
+    });
     return () => {
       cancelled = true;
     };
@@ -73,14 +80,16 @@ export function ProjectAttendance({
   // Poll so a tap in LINE (or a name added from another tab) shows up here.
   useEffect(() => {
     const interval = setInterval(async () => {
-      const [rows, latestWorkers, latestHistory] = await Promise.all([
+      const [rows, latestWorkers, latestHistory, latestNoWork] = await Promise.all([
         getAttendanceAction(projectId, dateRef.current),
         listCheckinWorkersAction(),
         getAttendanceHistoryAction(projectId),
+        getNoWorkDayAction(projectId, dateRef.current),
       ]);
       setPresentIds(new Set(rows.map((r) => r.workerId)));
       setWorkers(latestWorkers);
       setHistory(latestHistory);
+      setNoWork(latestNoWork);
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [projectId]);
@@ -93,9 +102,27 @@ export function ProjectAttendance({
       else next.delete(workerId);
       return next;
     });
+    if (willBePresent) setNoWork(false);
     startTransition(async () => {
       await toggleAttendanceAction(projectId, workerId, date);
       refreshHistory();
+    });
+  };
+
+  const toggleNoWork = () => {
+    const next = !noWork;
+    setTogglingNoWork(true);
+    setNoWork(next);
+    if (next) setPresentIds(new Set());
+    startTransition(async () => {
+      const res = await setNoWorkDayAction(projectId, date, next);
+      setTogglingNoWork(false);
+      if (res.ok) {
+        refreshHistory();
+      } else {
+        setNoWork(!next);
+        setNotice(res.error);
+      }
     });
   };
 
@@ -191,13 +218,33 @@ export function ProjectAttendance({
             {sending ? "กำลังส่ง…" : "ส่งเช็คชื่อไปไลน์"}
           </button>
         )}
+        {canEdit && (
+          <button
+            type="button"
+            onClick={toggleNoWork}
+            disabled={togglingNoWork}
+            className={
+              noWork
+                ? "inline-flex h-10 items-center rounded-md bg-danger px-4 text-body-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                : "inline-flex h-10 items-center rounded-md border border-[#e2ddd0] bg-white px-4 text-body-sm font-medium text-text-primary hover:bg-[#faf8f3] disabled:opacity-50"
+            }
+          >
+            {noWork ? "ยกเลิกหยุดงาน" : "หยุดงาน"}
+          </button>
+        )}
         <span className="text-caption text-text-secondary">
           เข้าหน้างาน {presentIds.size} / {workers.length} คน
         </span>
       </div>
-      <p className="text-caption text-text-secondary">
-        เช็คชื่อแล้วจะบันทึกลงสรุปค่าแรง (/wages) ให้อัตโนมัติ
-      </p>
+      {noWork ? (
+        <p className="text-caption text-danger">
+          บันทึกว่าวันนี้หยุดงาน — ไม่มีการทำงานในโปรเจคนี้
+        </p>
+      ) : (
+        <p className="text-caption text-text-secondary">
+          เช็คชื่อแล้วจะบันทึกลงสรุปค่าแรง (/wages) ให้อัตโนมัติ
+        </p>
+      )}
       {notice && <p className="text-caption text-text-secondary">{notice}</p>}
 
       {workers.length === 0 ? (
@@ -296,12 +343,18 @@ export function ProjectAttendance({
                 <span className="text-text-secondary">
                   {historyDateFmt.format(new Date(`${day.date}T00:00:00Z`))}
                 </span>{" "}
-                <span className="text-text-primary">
-                  {day.workerNames.join(", ")}
-                </span>{" "}
-                <span className="text-caption text-text-secondary">
-                  ({day.workerNames.length} คน)
-                </span>
+                {day.noWork ? (
+                  <span className="text-danger">หยุดงาน</span>
+                ) : (
+                  <>
+                    <span className="text-text-primary">
+                      {day.workerNames.join(", ")}
+                    </span>{" "}
+                    <span className="text-caption text-text-secondary">
+                      ({day.workerNames.length} คน)
+                    </span>
+                  </>
+                )}
                 {canEdit && (
                   <button
                     type="button"

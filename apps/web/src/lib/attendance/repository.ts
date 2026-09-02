@@ -69,8 +69,9 @@ async function removeAutoWage(
   });
 }
 
-/** Delete an entire day's check-in (every worker marked present that day),
- * removing their auto-synced wage entries too (already-paid ones are kept). */
+/** Delete an entire day's check-in (every worker marked present that day,
+ * or a "หยุดงาน" marker), removing auto-synced wage entries too (already-paid
+ * ones are kept). */
 export async function deleteAttendanceDay(
   projectId: string,
   date: Date
@@ -83,6 +84,40 @@ export async function deleteAttendanceDay(
     await removeAutoWage(projectId, r.workerId, date);
   }
   await prisma.workerAttendance.deleteMany({ where: { projectId, date } });
+  await prisma.noWorkDay.deleteMany({ where: { projectId, date } });
+}
+
+/** Mark a day as "หยุดงาน" (no work at all) — clears any attendance already
+ * recorded for it first, since the two are mutually exclusive. */
+export async function markNoWorkDay(
+  projectId: string,
+  date: Date,
+  actorId: string | null
+): Promise<void> {
+  await deleteAttendanceDay(projectId, date);
+  await prisma.noWorkDay.upsert({
+    where: { projectId_date: { projectId, date } },
+    create: { projectId, date, createdById: actorId },
+    update: {},
+  });
+}
+
+export async function unmarkNoWorkDay(
+  projectId: string,
+  date: Date
+): Promise<void> {
+  await prisma.noWorkDay.deleteMany({ where: { projectId, date } });
+}
+
+export async function isNoWorkDay(
+  projectId: string,
+  date: Date
+): Promise<boolean> {
+  const row = await prisma.noWorkDay.findUnique({
+    where: { projectId_date: { projectId, date } },
+    select: { id: true },
+  });
+  return row !== null;
 }
 
 /** Workers marked present for a project on a given date. */
@@ -120,6 +155,7 @@ export async function toggleAttendance(
     data: { projectId, workerId, date, createdById: actorId },
   });
   await createAutoWage(projectId, workerId, date, actorId);
+  await unmarkNoWorkDay(projectId, date);
   return true;
 }
 
@@ -139,6 +175,7 @@ export async function ensurePresent(
     data: { projectId, workerId, date, createdById: actorId },
   });
   await createAutoWage(projectId, workerId, date, actorId);
+  await unmarkNoWorkDay(projectId, date);
   return true;
 }
 
@@ -166,19 +203,32 @@ export async function addCheckinWorker(name: string): Promise<CheckinWorkerItem>
   });
 }
 
-export type AttendanceHistoryDay = { date: string; workerNames: string[] };
+export type AttendanceHistoryDay = {
+  date: string;
+  workerNames: string[];
+  noWork?: boolean;
+};
 
-/** Past check-in days for a project, most recent first, for the history log. */
+/** Past check-in days for a project, most recent first, for the history log
+ * — includes both worker check-ins and "หยุดงาน" no-work days. */
 export async function listAttendanceHistory(
   projectId: string,
   limit = 30
 ): Promise<AttendanceHistoryDay[]> {
-  const rows = await prisma.workerAttendance.findMany({
-    where: { projectId },
-    orderBy: { date: "desc" },
-    include: { worker: { select: { name: true } } },
-    take: 500,
-  });
+  const [rows, noWorkRows] = await Promise.all([
+    prisma.workerAttendance.findMany({
+      where: { projectId },
+      orderBy: { date: "desc" },
+      include: { worker: { select: { name: true } } },
+      take: 500,
+    }),
+    prisma.noWorkDay.findMany({
+      where: { projectId },
+      orderBy: { date: "desc" },
+      take: 500,
+      select: { date: true },
+    }),
+  ]);
 
   const byDate = new Map<string, string[]>();
   for (const r of rows) {
@@ -188,10 +238,14 @@ export async function listAttendanceHistory(
     else byDate.set(dateStr, [r.worker.name]);
   }
 
-  return Array.from(byDate.entries())
-    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
-    .slice(0, limit)
-    .map(([date, workerNames]) => ({ date, workerNames }));
+  const days: AttendanceHistoryDay[] = Array.from(byDate.entries()).map(
+    ([date, workerNames]) => ({ date, workerNames })
+  );
+  for (const n of noWorkRows) {
+    days.push({ date: n.date.toISOString().slice(0, 10), workerNames: [], noWork: true });
+  }
+
+  return days.sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, limit);
 }
 
 /** Rename a roster entry and relabel their auto-synced wage entries to match
