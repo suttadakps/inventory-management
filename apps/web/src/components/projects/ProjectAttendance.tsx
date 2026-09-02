@@ -50,6 +50,7 @@ export function ProjectAttendance({
   const [addingOther, setAddingOther] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const checklistRef = useRef<HTMLDivElement>(null);
 
   const refreshHistory = () => {
     getAttendanceHistoryAction(projectId).then(setHistory);
@@ -152,12 +153,17 @@ export function ProjectAttendance({
     });
   };
 
+  const jumpToDate = (day: string) => {
+    setDate(day);
+    checklistRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const inputCls =
     "h-10 rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none";
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
+      <div ref={checklistRef} className="flex flex-wrap items-center gap-2">
         <input
           type="date"
           value={date}
@@ -275,7 +281,7 @@ export function ProjectAttendance({
         ) : (
           <ul className="space-y-1.5">
             {history.map((day) => (
-              <li key={day.date} className="text-body-sm">
+              <li key={day.date} className="flex items-center gap-1.5 text-body-sm">
                 <span className="text-text-secondary">
                   {historyDateFmt.format(new Date(`${day.date}T00:00:00Z`))}
                 </span>{" "}
@@ -285,6 +291,15 @@ export function ProjectAttendance({
                 <span className="text-caption text-text-secondary">
                   ({day.workerNames.length} คน)
                 </span>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => jumpToDate(day.date)}
+                    className="shrink-0 text-caption text-primary-700 hover:underline"
+                  >
+                    แก้ไข
+                  </button>
+                )}
               </li>
             ))}
           </ul>
