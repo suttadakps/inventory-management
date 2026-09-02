@@ -958,6 +958,7 @@ enum ProjectStatus {
   quotation
   lost
   planning
+  approved
   started
   active
   on_hold

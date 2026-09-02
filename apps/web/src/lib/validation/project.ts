@@ -10,6 +10,7 @@ const PROJECT_STATUSES = [
   "quotation",
   "lost",
   "planning",
+  "approved",
   "started",
   "active",
   "on_hold",
