@@ -15,6 +15,26 @@ async function linePost(path: string, body: unknown): Promise<void> {
   }
 }
 
+/** Download a sent message's binary content (e.g. a photo) — a different
+ * host/verb from linePost's JSON push API. */
+export async function downloadLineContent(
+  messageId: string
+): Promise<{ buffer: Buffer; contentType: string }> {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token) throw new Error("LINE not configured");
+
+  const res = await fetch(
+    `https://api-data.line.me/v2/bot/message/${messageId}/content`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!res.ok) {
+    throw new Error(`LINE content download failed: ${res.status} ${await res.text()}`);
+  }
+  const contentType = res.headers.get("content-type") ?? "image/jpeg";
+  const buffer = Buffer.from(await res.arrayBuffer());
+  return { buffer, contentType };
+}
+
 /** Push a plain text message to the shared LINE group configured for this app. */
 export async function sendLineMessage(text: string): Promise<void> {
   const groupId = process.env.LINE_GROUP_ID;

@@ -551,9 +551,10 @@ model Expense {
   createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt   DateTime?      @map("deleted_at") @db.Timestamptz(6)
-  items       ExpenseItem[]
-  project     Project?       @relation(fields: [projectId], references: [id])
-  spender     User?          @relation("ExpenseSpender", fields: [spentById], references: [id])
+  items          ExpenseItem[]
+  project        Project?        @relation(fields: [projectId], references: [id])
+  spender        User?           @relation("ExpenseSpender", fields: [spentById], references: [id])
+  pendingReceipt PendingReceipt?
 
   @@index([projectId])
   @@index([spentById])
@@ -650,6 +651,25 @@ model CheckinWorker {
   attendances WorkerAttendance[]
 
   @@map("checkin_workers")
+}
+
+/// A receipt photo sent via LINE, AI-extracted, waiting for someone to name
+/// the project it belongs to. LINE image messages carry no caption field, so
+/// the project name always arrives as a separate text message right after.
+model PendingReceipt {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storagePath String    @map("storage_path")
+  amount      Decimal?  @db.Decimal(14, 2)
+  vendor      String?
+  description String?
+  incurredAt  DateTime? @map("incurred_at") @db.Timestamptz(6)
+  status      String    @default("awaiting_project")
+  expenseId   String?   @unique @map("expense_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  expense     Expense?  @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@map("pending_receipts")
 }
 
 /// Singleton pointer (id is always "global") to the most recently sent

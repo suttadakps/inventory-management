@@ -16,18 +16,30 @@ import {
   markNoWorkDay,
   getProjectName,
 } from "@/lib/attendance/repository";
-import { replyLineMessage } from "@/lib/line/client";
+import {
+  getOldestPendingReceipt,
+  matchProjectsByName,
+  resolvePendingReceipt,
+  createPendingReceipt,
+  uploadReceiptImage,
+} from "@/lib/receipts/repository";
+import { extractReceiptFromImage } from "@/lib/receipts/extract";
+import { replyLineMessage, downloadLineContent } from "@/lib/line/client";
 import { formatDateBkk } from "@/lib/format";
 
 /**
  * Real LINE Messaging API webhook. Handles: a "done" postback from a trigger
  * reminder's button (see sendLineTriggerMessage in lib/line/client.ts); a
  * "checkin" postback from a worker roll-call button and a "nowork" postback
- * from the roll-call's "หยุดงาน" button (see sendLineCheckinMessage); and a
+ * from the roll-call's "หยุดงาน" button (see sendLineCheckinMessage); a
  * plain-text "เพิ่มคนงาน <ชื่อ>" message — LINE buttons can't accept free
  * typing, so a name not already on the roster is added by typing that
  * command, applied to whichever project's roll-call went out most recently
- * today (see attendance/repository's RollCallState).
+ * today (see attendance/repository's RollCallState); a photo message, which
+ * gets AI-read as an expense receipt and held as a PendingReceipt; and a
+ * plain-text project name, which — if a receipt is waiting — resolves it into
+ * a real Expense (see lib/receipts). LINE images carry no caption field, so
+ * the project name always arrives as a separate message right after.
  *
  * Secured with LINE_CHANNEL_SECRET: LINE signs the raw request body with it
  * (HMAC-SHA256, base64) and sends the signature as x-line-signature. Closed
@@ -41,7 +53,7 @@ type LineEvent = {
   type: string;
   replyToken?: string;
   postback?: { data: string };
-  message?: { type: string; text?: string };
+  message?: { type: string; id?: string; text?: string };
 };
 
 const ADD_WORKER_RE = /^เพิ่มคนงาน\s+(.+)$/;
@@ -85,41 +97,128 @@ export async function POST(req: Request) {
 
   for (const event of events) {
     if (event.type === "message" && event.message?.type === "text") {
-      const match = ADD_WORKER_RE.exec(event.message.text?.trim() ?? "");
-      if (!match) continue;
-      const name = (match[1] ?? "").trim();
-      if (!name) continue;
+      const text = event.message.text?.trim() ?? "";
+      const match = ADD_WORKER_RE.exec(text);
 
-      try {
-        const todayStr = new Date().toLocaleDateString("en-CA", {
-          timeZone: "Asia/Bangkok",
-        });
-        const last = await getLastRollCall(todayStr);
-        if (!last) {
+      if (match) {
+        const name = (match[1] ?? "").trim();
+        if (!name) continue;
+
+        try {
+          const todayStr = new Date().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Bangkok",
+          });
+          const last = await getLastRollCall(todayStr);
+          if (!last) {
+            if (event.replyToken) {
+              await replyLineMessage(
+                event.replyToken,
+                `ยังไม่มีการส่งเช็คชื่อวันนี้ กรุณากด "ส่งเช็คชื่อไปไลน์" จากหน้าเว็บโปรเจคก่อน`
+              );
+            }
+            continue;
+          }
+
+          const worker = await addCheckinWorker(name);
+          const date = new Date(`${last.date}T00:00:00Z`);
+          const added = await ensurePresent(last.projectId, worker.id, date, null);
+          revalidatePath(`/projects/${last.projectId}`);
+          revalidatePath("/wages");
           if (event.replyToken) {
             await replyLineMessage(
               event.replyToken,
-              `ยังไม่มีการส่งเช็คชื่อวันนี้ กรุณากด "ส่งเช็คชื่อไปไลน์" จากหน้าเว็บโปรเจคก่อน`
+              added
+                ? `✅ เพิ่ม ${worker.name} เข้าหน้างาน ${last.projectName} (${last.date})`
+                : `${worker.name} เข้าหน้างาน ${last.projectName} (${last.date}) อยู่แล้ว`
             );
           }
-          continue;
+        } catch {
+          // Best-effort: a failed reply/update here shouldn't fail the whole batch.
+        }
+        continue;
+      }
+
+      // Not a เพิ่มคนงาน command — if a receipt photo is waiting for its
+      // project, treat this text as naming it.
+      try {
+        const pending = await getOldestPendingReceipt();
+        if (pending) {
+          const matches = await matchProjectsByName(text);
+          if (matches.length === 1) {
+            const project = matches[0]!;
+            const resolved = await resolvePendingReceipt(pending.id, project);
+            revalidatePath("/costs");
+            revalidatePath(`/projects/${project.id}`);
+            if (event.replyToken) {
+              await replyLineMessage(
+                event.replyToken,
+                `✅ บันทึกค่าใช้จ่าย ${resolved.amount.toLocaleString("th-TH")} บาท เข้าโปรเจค ${resolved.projectName} แล้ว`
+              );
+            }
+          } else if (matches.length > 1) {
+            if (event.replyToken) {
+              await replyLineMessage(
+                event.replyToken,
+                `เจอหลายโปรเจคที่ตรงกับ "${text}": ${matches.map((m) => m.name).join(", ")} — พิมพ์ชื่อให้ชัดเจนขึ้นอีกครั้ง`
+              );
+            }
+          }
+          // 0 matches — not a recognised project name, ignore silently.
+        }
+      } catch {
+        // Best-effort.
+      }
+      continue;
+    }
+
+    if (event.type === "message" && event.message?.type === "image") {
+      const messageId = event.message.id;
+      if (!messageId) continue;
+
+      try {
+        const { buffer, contentType } = await downloadLineContent(messageId);
+        const { storagePath } = await uploadReceiptImage(buffer, contentType);
+
+        let extracted = {
+          amount: null as number | null,
+          vendor: null as string | null,
+          description: null as string | null,
+          date: null as string | null,
+        };
+        try {
+          extracted = await extractReceiptFromImage({
+            base64: buffer.toString("base64"),
+            mimeType: contentType,
+          });
+        } catch {
+          // AI reading is best-effort — still record the pending receipt.
         }
 
-        const worker = await addCheckinWorker(name);
-        const date = new Date(`${last.date}T00:00:00Z`);
-        const added = await ensurePresent(last.projectId, worker.id, date, null);
-        revalidatePath(`/projects/${last.projectId}`);
-        revalidatePath("/wages");
+        await createPendingReceipt({
+          storagePath,
+          amount: extracted.amount,
+          vendor: extracted.vendor,
+          description: extracted.description,
+          incurredAt: extracted.date ? new Date(`${extracted.date}T00:00:00Z`) : null,
+        });
+
         if (event.replyToken) {
+          const amountText =
+            extracted.amount != null
+              ? `${extracted.amount.toLocaleString("th-TH")} บาท`
+              : "ไม่พบยอดเงินในรูป";
           await replyLineMessage(
             event.replyToken,
-            added
-              ? `✅ เพิ่ม ${worker.name} เข้าหน้างาน ${last.projectName} (${last.date})`
-              : `${worker.name} เข้าหน้างาน ${last.projectName} (${last.date}) อยู่แล้ว`
+            `ได้รับสลิปแล้ว — ${amountText}${extracted.vendor ? ` (${extracted.vendor})` : ""}\nพิมพ์ชื่อโปรเจคเพื่อบันทึกเข้าระบบ`
           );
         }
       } catch {
-        // Best-effort: a failed reply/update here shouldn't fail the whole batch.
+        if (event.replyToken) {
+          await replyLineMessage(
+            event.replyToken,
+            "อ่านสลิปไม่สำเร็จ กรุณาลองส่งใหม่อีกครั้ง"
+          ).catch(() => {});
+        }
       }
       continue;
     }

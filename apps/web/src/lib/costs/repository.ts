@@ -101,6 +101,39 @@ export async function createExpense(
   });
 }
 
+/** Create an expense from a LINE-submitted receipt photo — no authenticated
+ * web user, so the actor may be null (unlike createExpense's manual-entry path). */
+export async function createExpenseFromReceipt(
+  input: {
+    projectId: string;
+    category: string;
+    description?: string;
+    amount: number;
+    incurredAt?: Date;
+    receiptUrl: string;
+  },
+  actorId: string | null
+): Promise<string> {
+  return prisma.$transaction(async (tx) => {
+    const e = await tx.expense.create({
+      data: {
+        projectId: input.projectId,
+        category: input.category,
+        description: input.description ?? null,
+        amount: input.amount,
+        incurredAt: input.incurredAt ?? new Date(),
+        receiptUrl: input.receiptUrl,
+        spentById: actorId,
+        createdById: actorId,
+        updatedById: actorId,
+      },
+      select: { id: true, projectId: true },
+    });
+    if (e.projectId) await syncActualCost(tx, e.projectId);
+    return e.id;
+  });
+}
+
 export async function deleteExpense(
   id: string,
   userId: string
