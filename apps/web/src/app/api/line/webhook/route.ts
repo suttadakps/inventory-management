@@ -19,7 +19,8 @@ import {
 import {
   getOldestPendingReceipt,
   matchProjectsByName,
-  resolvePendingReceipt,
+  setPendingReceiptProject,
+  finalizePendingReceipt,
   createPendingReceipt,
   uploadReceiptImage,
 } from "@/lib/receipts/repository";
@@ -35,11 +36,12 @@ import { formatDateBkk } from "@/lib/format";
  * plain-text "เพิ่มคนงาน <ชื่อ>" message — LINE buttons can't accept free
  * typing, so a name not already on the roster is added by typing that
  * command, applied to whichever project's roll-call went out most recently
- * today (see attendance/repository's RollCallState); a photo message, which
- * gets AI-read as an expense receipt and held as a PendingReceipt; and a
- * plain-text project name, which — if a receipt is waiting — resolves it into
- * a real Expense (see lib/receipts). LINE images carry no caption field, so
- * the project name always arrives as a separate message right after.
+ * today (see attendance/repository's RollCallState); and a photo message,
+ * which gets AI-read as an expense receipt and held as a PendingReceipt
+ * (see lib/receipts) until two follow-up text replies land — the project
+ * name, then the paid-for item — at which point it becomes a real Expense.
+ * LINE images carry no caption field, so both always arrive as separate
+ * messages right after the photo.
  *
  * Secured with LINE_CHANNEL_SECRET: LINE signs the raw request body with it
  * (HMAC-SHA256, base64) and sends the signature as x-line-signature. Closed
@@ -138,21 +140,21 @@ export async function POST(req: Request) {
         continue;
       }
 
-      // Not a เพิ่มคนงาน command — if a receipt photo is waiting for its
-      // project, treat this text as naming it.
+      // Not a เพิ่มคนงาน command — if a receipt photo is waiting on a reply,
+      // this text is either the project name (step 1) or the paid-for item
+      // (step 2), depending on where that receipt currently sits.
       try {
         const pending = await getOldestPendingReceipt();
-        if (pending) {
+        if (pending?.status === "awaiting_project") {
           const matches = await matchProjectsByName(text);
           if (matches.length === 1) {
             const project = matches[0]!;
-            const resolved = await resolvePendingReceipt(pending.id, project);
-            revalidatePath("/costs");
-            revalidatePath(`/projects/${project.id}`);
+            await setPendingReceiptProject(pending.id, project);
             if (event.replyToken) {
+              const guess = pending.description ?? pending.vendor;
               await replyLineMessage(
                 event.replyToken,
-                `✅ บันทึกค่าใช้จ่าย ${resolved.amount.toLocaleString("th-TH")} บาท เข้าโปรเจค ${resolved.projectName} แล้ว`
+                `โปรเจค ${project.name} — พิมพ์รายการที่จ่าย${guess ? ` (ระบบเดาไว้ว่า "${guess}" พิมพ์ยืนยันหรือแก้ไขได้)` : ""}`
               );
             }
           } else if (matches.length > 1) {
@@ -164,6 +166,16 @@ export async function POST(req: Request) {
             }
           }
           // 0 matches — not a recognised project name, ignore silently.
+        } else if (pending?.status === "awaiting_description") {
+          const resolved = await finalizePendingReceipt(pending.id, text);
+          revalidatePath("/costs");
+          revalidatePath(`/projects/${pending.projectId}`);
+          if (event.replyToken) {
+            await replyLineMessage(
+              event.replyToken,
+              `✅ บันทึก "${text}" ${resolved.amount.toLocaleString("th-TH")} บาท เข้าโปรเจค ${resolved.projectName} แล้ว`
+            );
+          }
         }
       } catch {
         // Best-effort.
@@ -209,7 +221,7 @@ export async function POST(req: Request) {
               : "ไม่พบยอดเงินในรูป";
           await replyLineMessage(
             event.replyToken,
-            `ได้รับสลิปแล้ว — ${amountText}${extracted.vendor ? ` (${extracted.vendor})` : ""}\nพิมพ์ชื่อโปรเจคเพื่อบันทึกเข้าระบบ`
+            `ได้รับสลิปแล้ว — ${amountText}${extracted.vendor ? ` (${extracted.vendor})` : ""}\nพิมพ์ชื่อโปรเจค`
           );
         }
       } catch {

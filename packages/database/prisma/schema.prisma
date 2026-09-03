@@ -663,6 +663,9 @@ model PendingReceipt {
   vendor      String?
   description String?
   incurredAt  DateTime? @map("incurred_at") @db.Timestamptz(6)
+  projectId   String?   @map("project_id") @db.Uuid
+  projectName String?   @map("project_name")
+  /// awaiting_project -> awaiting_description -> done
   status      String    @default("awaiting_project")
   expenseId   String?   @unique @map("expense_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
