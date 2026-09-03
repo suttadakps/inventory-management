@@ -284,6 +284,16 @@ export async function listActiveProjectsForRollCall(): Promise<RollCallProject[]
   return rows;
 }
 
+/** Project name for a check-in-related postback that has no worker involved
+ * (e.g. the "หยุดงาน" button). */
+export async function getProjectName(projectId: string): Promise<string | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { name: true },
+  });
+  return project?.name ?? null;
+}
+
 const ROLL_CALL_STATE_ID = "global";
 
 /** Record which project's roll-call was just pushed to LINE, for the free-text add command. */

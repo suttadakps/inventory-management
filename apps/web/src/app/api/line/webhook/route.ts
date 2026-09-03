@@ -13,18 +13,21 @@ import {
   getLastRollCall,
   addCheckinWorker,
   ensurePresent,
+  markNoWorkDay,
+  getProjectName,
 } from "@/lib/attendance/repository";
 import { replyLineMessage } from "@/lib/line/client";
 import { formatDateBkk } from "@/lib/format";
 
 /**
- * Real LINE Messaging API webhook. Handles three things: a "done" postback
- * from a trigger reminder's button (see sendLineTriggerMessage in
- * lib/line/client.ts), a "checkin" postback from a worker roll-call button
- * (see sendLineCheckinMessage), and a plain-text "เพิ่มคนงาน <ชื่อ>" message —
- * LINE buttons can't accept free typing, so a name not already on the roster
- * is added by typing that command, applied to whichever project's roll-call
- * went out most recently today (see attendance/repository's RollCallState).
+ * Real LINE Messaging API webhook. Handles: a "done" postback from a trigger
+ * reminder's button (see sendLineTriggerMessage in lib/line/client.ts); a
+ * "checkin" postback from a worker roll-call button and a "nowork" postback
+ * from the roll-call's "หยุดงาน" button (see sendLineCheckinMessage); and a
+ * plain-text "เพิ่มคนงาน <ชื่อ>" message — LINE buttons can't accept free
+ * typing, so a name not already on the roster is added by typing that
+ * command, applied to whichever project's roll-call went out most recently
+ * today (see attendance/repository's RollCallState).
  *
  * Secured with LINE_CHANNEL_SECRET: LINE signs the raw request body with it
  * (HMAC-SHA256, base64) and sends the signature as x-line-signature. Closed
@@ -149,6 +152,30 @@ export async function POST(req: Request) {
             present
               ? `✅ ${ctx.workerName} เข้าหน้างาน ${ctx.projectName} (${date})`
               : `ยกเลิกเช็คชื่อ ${ctx.workerName} — ${ctx.projectName} (${date})`
+          );
+        }
+      } catch {
+        // Best-effort: a failed reply/update here shouldn't fail the whole batch.
+      }
+      continue;
+    }
+
+    if (action === "nowork") {
+      const projectId = params.get("project");
+      const date = params.get("date");
+      if (!projectId || !date) continue;
+
+      try {
+        const projectName = await getProjectName(projectId);
+        if (!projectName) continue;
+
+        await markNoWorkDay(projectId, new Date(`${date}T00:00:00Z`), null);
+        revalidatePath(`/projects/${projectId}`);
+        revalidatePath("/wages");
+        if (event.replyToken) {
+          await replyLineMessage(
+            event.replyToken,
+            `บันทึกว่าหยุดงาน — ${projectName} (${date})`
           );
         }
       } catch {

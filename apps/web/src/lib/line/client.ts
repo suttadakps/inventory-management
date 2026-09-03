@@ -142,17 +142,31 @@ export async function sendLineCheckinMessage(
             type: "box",
             layout: "vertical",
             spacing: "sm",
-            contents: workers.map((w) => ({
-              type: "button",
-              style: "secondary",
-              height: "sm",
-              action: {
-                type: "postback",
-                label: w.name.slice(0, 20),
-                data: `action=checkin&project=${project.id}&worker=${w.id}&date=${date}`,
-                displayText: w.name,
+            contents: [
+              ...workers.map((w) => ({
+                type: "button",
+                style: "secondary",
+                height: "sm",
+                action: {
+                  type: "postback",
+                  label: w.name.slice(0, 20),
+                  data: `action=checkin&project=${project.id}&worker=${w.id}&date=${date}`,
+                  displayText: w.name,
+                },
+              })),
+              {
+                type: "button",
+                style: "primary",
+                height: "sm",
+                color: "#b3261e",
+                action: {
+                  type: "postback",
+                  label: "หยุดงาน",
+                  data: `action=nowork&project=${project.id}&date=${date}`,
+                  displayText: "หยุดงาน",
+                },
               },
-            })),
+            ],
           },
         },
       },
