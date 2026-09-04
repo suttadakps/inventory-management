@@ -105,6 +105,8 @@ export function EstimationReview({
                 <td className="p-1.5 align-top">
                   <input
                     type="number"
+                    step="0.01"
+                    inputMode="decimal"
                     value={r.quantity}
                     onChange={(e) =>
                       patchRow(idx, { quantity: Number(e.target.value) || 0 })

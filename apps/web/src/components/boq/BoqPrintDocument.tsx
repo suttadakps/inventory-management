@@ -146,6 +146,22 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
         </table>
       </div>
 
+      <div className="mt-6 flex items-start justify-between gap-8">
+        <div className="text-body-sm">
+          <div className="mb-1 font-semibold">ชำระเงิน</div>
+          <div>บจก. อาร์ติเวอร์จ เน๊กส์</div>
+          <div>ธนาคารกสิกรไทย</div>
+          <div className="tabular-nums">เลขบัญชี 234-8-60938-9</div>
+        </div>
+        <Image
+          src="/payment-qr.png"
+          alt="PromptPay QR"
+          width={140}
+          height={140}
+          style={{ height: "140px", width: "140px" }}
+        />
+      </div>
+
       {doc.terms && doc.terms.trim() !== "" && (
         <div className="mt-6">
           <div className="mb-1 text-body-sm font-semibold">เงื่อนไขเพิ่มเติม</div>
