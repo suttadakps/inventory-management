@@ -28,6 +28,7 @@ import {
 } from "@/lib/boq/actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { DecimalInput } from "@/components/ui/DecimalInput";
 
 // ---------------------------------------------------------------------------
 
@@ -511,17 +512,13 @@ function ItemRow({
 }) {
   const c = computeItem(toCosts(item));
   const num = (field: keyof BoqItemDto) => (
-    <input
-      type="number"
-      step="0.01"
-      min={0}
+    <DecimalInput
       disabled={!editable}
       value={Number.isFinite(item[field] as number) ? (item[field] as number) : 0}
-      onChange={(e) => {
-        const v = e.target.valueAsNumber;
-        onPatch(item.id, { [field]: Number.isNaN(v) ? 0 : v } as Partial<BoqItemDto>);
+      onCommit={(v) => {
+        onPatch(item.id, { [field]: v } as Partial<BoqItemDto>);
+        onSave({ ...item, [field]: v });
       }}
-      onBlur={() => onSave(item)}
       className="w-24 rounded-sm border border-border bg-surface px-2 py-1 text-right font-mono tabular-nums disabled:opacity-60"
     />
   );

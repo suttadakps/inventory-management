@@ -173,14 +173,18 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
 
       <div className="mt-12 grid grid-cols-2 gap-8 text-center text-body-sm">
         <div>
-          <div className="mb-1 border-t border-neutral/50 pt-2">ผู้เสนอราคา</div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/signature-suttada.png"
+            alt=""
+            className="mx-auto h-14 object-contain"
+          />
+          <div className="border-t border-neutral/50 pt-2">ผู้เสนอราคา</div>
           <div className="text-text-secondary">{doc.proposerName || ""}</div>
         </div>
         <div>
-          <div className="mb-1 border-t border-neutral/50 pt-2">ผู้ว่าจ้าง</div>
-          <div className="text-text-secondary">
-            {doc.project?.clientName ?? ""}
-          </div>
+          <div className="h-14" />
+          <div className="border-t border-neutral/50 pt-2">ผู้ว่าจ้าง</div>
         </div>
       </div>
     </div>

@@ -18,6 +18,7 @@ import {
 } from "@/lib/boq/actions";
 import { formatBaht } from "@/lib/format";
 import { Textarea } from "@/components/ui/Textarea";
+import { DecimalInput } from "@/components/ui/DecimalInput";
 
 const VAT_RATE = 0.07;
 const WHT_RATE = 0.03;
@@ -288,16 +289,13 @@ export function BoqFlatEditor({
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <input
-                      inputMode="decimal"
+                    <DecimalInput
                       value={r.quantity}
                       disabled={!editable}
-                      onChange={(e) =>
-                        patchRow(r.id, {
-                          quantity: Number(e.target.value) || 0,
-                        })
-                      }
-                      onBlur={() => saveLine(r.id, { quantity: r.quantity })}
+                      onCommit={(quantity) => {
+                        patchRow(r.id, { quantity });
+                        saveLine(r.id, { quantity });
+                      }}
                       className={cellInput}
                     />
                   </td>
@@ -311,16 +309,13 @@ export function BoqFlatEditor({
                     />
                   </td>
                   <td className="px-4 py-2">
-                    <input
-                      inputMode="decimal"
+                    <DecimalInput
                       value={r.unitPrice}
                       disabled={!editable}
-                      onChange={(e) =>
-                        patchRow(r.id, {
-                          unitPrice: Number(e.target.value) || 0,
-                        })
-                      }
-                      onBlur={() => saveLine(r.id, { unitPrice: r.unitPrice })}
+                      onCommit={(unitPrice) => {
+                        patchRow(r.id, { unitPrice });
+                        saveLine(r.id, { unitPrice });
+                      }}
                       className={cellInput}
                     />
                   </td>

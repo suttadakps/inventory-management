@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { commitExtractionAction } from "@/lib/estimation/actions";
 import type { ExtractedLine } from "@/lib/estimation/shared";
 import { formatBaht } from "@/lib/format";
+import { DecimalInput } from "@/components/ui/DecimalInput";
 
 const cellInput =
   "w-full rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-3 py-2 text-body-sm text-text-primary focus:border-primary-600 focus:bg-white focus:outline-none";
@@ -103,14 +104,9 @@ export function EstimationReview({
                   />
                 </td>
                 <td className="p-1.5 align-top">
-                  <input
-                    type="number"
-                    step="0.01"
-                    inputMode="decimal"
+                  <DecimalInput
                     value={r.quantity}
-                    onChange={(e) =>
-                      patchRow(idx, { quantity: Number(e.target.value) || 0 })
-                    }
+                    onCommit={(quantity) => patchRow(idx, { quantity })}
                     className={`${cellInput} text-right`}
                   />
                 </td>
@@ -122,12 +118,9 @@ export function EstimationReview({
                   />
                 </td>
                 <td className="p-1.5 align-top">
-                  <input
-                    type="number"
+                  <DecimalInput
                     value={r.unitPrice}
-                    onChange={(e) =>
-                      patchRow(idx, { unitPrice: Number(e.target.value) || 0 })
-                    }
+                    onCommit={(unitPrice) => patchRow(idx, { unitPrice })}
                     className={`${cellInput} text-right`}
                   />
                 </td>
