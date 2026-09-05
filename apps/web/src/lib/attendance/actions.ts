@@ -38,13 +38,12 @@ export async function getAttendanceAction(
   return repo.listAttendance(projectId, date);
 }
 
-/** Set a worker's presence from the web checklist — idempotent, so both the
- * checkbox and an explicit "บันทึก" confirm click can call it safely. */
-export async function setAttendanceAction(
+/** Save the whole day's check-in from the web checklist in one go — the
+ * ticked names are what gets recorded for that date. */
+export async function saveAttendanceDayAction(
   projectId: string,
-  workerId: string,
   dateStr: string,
-  present: boolean
+  workerIds: string[]
 ): Promise<InlineResult> {
   const user = await requireUser();
   if (!(await ensureCanEdit(user, projectId)))
@@ -53,7 +52,7 @@ export async function setAttendanceAction(
   const date = parseDate(dateStr);
   if (!date) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
 
-  await repo.setAttendance(projectId, workerId, date, present, user.id);
+  await repo.setAttendanceDay(projectId, date, workerIds, user.id);
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/wages");
   return { ok: true };

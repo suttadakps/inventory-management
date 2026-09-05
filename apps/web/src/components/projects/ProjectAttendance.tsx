@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import {
-  setAttendanceAction,
+  saveAttendanceDayAction,
   sendCheckinRollCallAction,
   getAttendanceAction,
   addCheckinWorkerAction,
@@ -43,7 +43,12 @@ export function ProjectAttendance({
   const [, startTransition] = useTransition();
   const [date, setDate] = useState(todayStr());
   const [workers, setWorkers] = useState(initialWorkers);
+  // presentIds = what the checkboxes currently show (may be unsaved edits);
+  // savedIds = what the server last told us. They differ while unsaved.
   const [presentIds, setPresentIds] = useState<Set<string>>(
+    new Set(initialPresentIds)
+  );
+  const [savedIds, setSavedIds] = useState<Set<string>>(
     new Set(initialPresentIds)
   );
   const [history, setHistory] = useState(initialHistory);
@@ -55,21 +60,29 @@ export function ProjectAttendance({
   const [editValue, setEditValue] = useState("");
   const [noWork, setNoWork] = useState(false);
   const [togglingNoWork, setTogglingNoWork] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const checklistRef = useRef<HTMLDivElement>(null);
+
+  const dirty =
+    presentIds.size !== savedIds.size ||
+    Array.from(presentIds).some((id) => !savedIds.has(id));
 
   const refreshHistory = () => {
     getAttendanceHistoryAction(projectId).then(setHistory);
   };
 
-  // Reload attendance whenever the selected date changes.
+  // Reload attendance whenever the selected date changes — switching days
+  // always discards any unticked/unsaved edits for the day you left.
   const dateRef = useRef(date);
   dateRef.current = date;
   useEffect(() => {
     let cancelled = false;
     getAttendanceAction(projectId, date).then((rows) => {
-      if (!cancelled) setPresentIds(new Set(rows.map((r) => r.workerId)));
+      if (cancelled) return;
+      const ids = new Set(rows.map((r) => r.workerId));
+      setPresentIds(ids);
+      setSavedIds(ids);
     });
     getNoWorkDayAction(projectId, date).then((v) => {
       if (!cancelled) setNoWork(v);
@@ -79,7 +92,10 @@ export function ProjectAttendance({
     };
   }, [projectId, date]);
 
-  // Poll so a tap in LINE (or a name added from another tab) shows up here.
+  // Poll so a tap in LINE (or a name added from another tab) shows up here —
+  // but never overwrite ticks that haven't been saved yet.
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
   useEffect(() => {
     const interval = setInterval(async () => {
       const [rows, latestWorkers, latestHistory, latestNoWork] = await Promise.all([
@@ -88,14 +104,19 @@ export function ProjectAttendance({
         getAttendanceHistoryAction(projectId),
         getNoWorkDayAction(projectId, dateRef.current),
       ]);
-      setPresentIds(new Set(rows.map((r) => r.workerId)));
       setWorkers(latestWorkers);
       setHistory(latestHistory);
+      if (dirtyRef.current) return;
+      const ids = new Set(rows.map((r) => r.workerId));
+      setPresentIds(ids);
+      setSavedIds(ids);
       setNoWork(latestNoWork);
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [projectId]);
 
+  /** Ticking only changes what's on screen — nothing is written until the
+   * "บันทึกการเข้างาน" button below is clicked. */
   const setChecked = (workerId: string, present: boolean) => {
     setPresentIds((prev) => {
       const next = new Set(prev);
@@ -103,27 +124,26 @@ export function ProjectAttendance({
       else next.delete(workerId);
       return next;
     });
+    setJustSaved(false);
     if (present) setNoWork(false);
-    startTransition(async () => {
-      await setAttendanceAction(projectId, workerId, date, present);
-      refreshHistory();
-    });
   };
 
-  /** Explicit "บันทึก" click — re-confirms whatever the checkbox currently
-   * shows, idempotently, and flashes a visible confirmation next to the row. */
-  const confirmSave = (workerId: string) => {
-    const present = presentIds.has(workerId);
-    setSavingId(workerId);
-    setSavedId(null);
+  /** Save every name ticked for this date, in one go. */
+  const saveDay = () => {
+    const ids = Array.from(presentIds);
+    setSaving(true);
+    setNotice(null);
     startTransition(async () => {
-      await setAttendanceAction(projectId, workerId, date, present);
-      refreshHistory();
-      setSavingId(null);
-      setSavedId(workerId);
-      setTimeout(() => {
-        setSavedId((id) => (id === workerId ? null : id));
-      }, 2000);
+      const res = await saveAttendanceDayAction(projectId, date, ids);
+      setSaving(false);
+      if (res.ok) {
+        setSavedIds(new Set(ids));
+        setJustSaved(true);
+        refreshHistory();
+        setTimeout(() => setJustSaved(false), 3000);
+      } else {
+        setNotice(res.error);
+      }
     });
   };
 
@@ -131,7 +151,10 @@ export function ProjectAttendance({
     const next = !noWork;
     setTogglingNoWork(true);
     setNoWork(next);
-    if (next) setPresentIds(new Set());
+    if (next) {
+      setPresentIds(new Set());
+      setSavedIds(new Set());
+    }
     startTransition(async () => {
       const res = await setNoWorkDayAction(projectId, date, next);
       setTogglingNoWork(false);
@@ -156,7 +179,9 @@ export function ProjectAttendance({
         setWorkers((prev) =>
           prev.some((w) => w.id === res.worker.id) ? prev : [...prev, res.worker]
         );
+        // addCheckinWorkerAction already records them present server-side.
         setPresentIds((prev) => new Set(prev).add(res.worker.id));
+        setSavedIds((prev) => new Set(prev).add(res.worker.id));
         refreshHistory();
       } else {
         setNotice(res.error);
@@ -210,6 +235,7 @@ export function ProjectAttendance({
       refreshHistory();
       if (day === dateRef.current) {
         setPresentIds(new Set());
+        setSavedIds(new Set());
       }
     });
   };
@@ -313,16 +339,6 @@ export function ProjectAttendance({
                 {canEdit && (
                   <button
                     type="button"
-                    onClick={() => confirmSave(w.id)}
-                    disabled={savingId === w.id}
-                    className="shrink-0 text-caption text-primary-700 hover:underline disabled:opacity-50"
-                  >
-                    {savedId === w.id ? "✓ บันทึกแล้ว" : "บันทึก"}
-                  </button>
-                )}
-                {canEdit && (
-                  <button
-                    type="button"
                     onClick={() => startEdit(w)}
                     aria-label={`แก้ไขชื่อ ${w.name}`}
                     className="shrink-0 text-caption text-text-secondary hover:text-primary-700 hover:underline"
@@ -334,6 +350,26 @@ export function ProjectAttendance({
             );
           })}
         </ul>
+      )}
+
+      {canEdit && workers.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={saveDay}
+            disabled={saving || !dirty}
+            className="inline-flex h-10 items-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white hover:bg-primary-600 disabled:opacity-50"
+          >
+            {saving ? "กำลังบันทึก…" : "บันทึกการเข้างาน"}
+          </button>
+          {dirty ? (
+            <span className="text-caption text-accent-600">
+              ยังไม่ได้บันทึก — กดปุ่มบันทึกเพื่อยืนยัน
+            </span>
+          ) : justSaved ? (
+            <span className="text-caption text-success">✓ บันทึกแล้ว</span>
+          ) : null}
+        </div>
       )}
 
       {canEdit && (

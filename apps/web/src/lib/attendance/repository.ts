@@ -163,6 +163,39 @@ export async function setAttendance(
   }
 }
 
+/** Save a whole day's check-in at once: after this, exactly `workerIds` are
+ * marked present for that project + date — anyone ticked since the last save
+ * is added, anyone unticked is removed, and wage entries follow along. */
+export async function setAttendanceDay(
+  projectId: string,
+  date: Date,
+  workerIds: string[],
+  actorId: string | null
+): Promise<void> {
+  const wanted = new Set(workerIds);
+  const existing = await prisma.workerAttendance.findMany({
+    where: { projectId, date },
+    select: { id: true, workerId: true },
+  });
+  const current = new Set(existing.map((e) => e.workerId));
+
+  for (const row of existing) {
+    if (!wanted.has(row.workerId)) {
+      await prisma.workerAttendance.delete({ where: { id: row.id } });
+      await removeAutoWage(projectId, row.workerId, date);
+    }
+  }
+  for (const workerId of wanted) {
+    if (!current.has(workerId)) {
+      await prisma.workerAttendance.create({
+        data: { projectId, workerId, date, createdById: actorId },
+      });
+      await createAutoWage(projectId, workerId, date, actorId);
+    }
+  }
+  if (wanted.size > 0) await unmarkNoWorkDay(projectId, date);
+}
+
 /** Toggle a worker's presence for a project on a date. Returns the new state.
  * Used by LINE, where a button tap has no "current checkbox" to read from. */
 export async function toggleAttendance(
