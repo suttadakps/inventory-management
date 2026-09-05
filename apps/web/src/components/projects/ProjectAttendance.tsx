@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 
 import {
-  toggleAttendanceAction,
+  setAttendanceAction,
   sendCheckinRollCallAction,
   getAttendanceAction,
   addCheckinWorkerAction,
@@ -55,6 +55,8 @@ export function ProjectAttendance({
   const [editValue, setEditValue] = useState("");
   const [noWork, setNoWork] = useState(false);
   const [togglingNoWork, setTogglingNoWork] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
   const checklistRef = useRef<HTMLDivElement>(null);
 
   const refreshHistory = () => {
@@ -94,18 +96,34 @@ export function ProjectAttendance({
     return () => clearInterval(interval);
   }, [projectId]);
 
-  const toggle = (workerId: string) => {
-    const willBePresent = !presentIds.has(workerId);
+  const setChecked = (workerId: string, present: boolean) => {
     setPresentIds((prev) => {
       const next = new Set(prev);
-      if (willBePresent) next.add(workerId);
+      if (present) next.add(workerId);
       else next.delete(workerId);
       return next;
     });
-    if (willBePresent) setNoWork(false);
+    if (present) setNoWork(false);
     startTransition(async () => {
-      await toggleAttendanceAction(projectId, workerId, date);
+      await setAttendanceAction(projectId, workerId, date, present);
       refreshHistory();
+    });
+  };
+
+  /** Explicit "บันทึก" click — re-confirms whatever the checkbox currently
+   * shows, idempotently, and flashes a visible confirmation next to the row. */
+  const confirmSave = (workerId: string) => {
+    const present = presentIds.has(workerId);
+    setSavingId(workerId);
+    setSavedId(null);
+    startTransition(async () => {
+      await setAttendanceAction(projectId, workerId, date, present);
+      refreshHistory();
+      setSavingId(null);
+      setSavedId(workerId);
+      setTimeout(() => {
+        setSavedId((id) => (id === workerId ? null : id));
+      }, 2000);
     });
   };
 
@@ -283,7 +301,7 @@ export function ProjectAttendance({
                     type="checkbox"
                     checked={present}
                     disabled={!canEdit}
-                    onChange={() => toggle(w.id)}
+                    onChange={(e) => setChecked(w.id, e.target.checked)}
                     className="h-4 w-4 shrink-0 accent-primary-700"
                   />
                   <span
@@ -292,6 +310,16 @@ export function ProjectAttendance({
                     {w.name}
                   </span>
                 </label>
+                {canEdit && (
+                  <button
+                    type="button"
+                    onClick={() => confirmSave(w.id)}
+                    disabled={savingId === w.id}
+                    className="shrink-0 text-caption text-primary-700 hover:underline disabled:opacity-50"
+                  >
+                    {savedId === w.id ? "✓ บันทึกแล้ว" : "บันทึก"}
+                  </button>
+                )}
                 {canEdit && (
                   <button
                     type="button"

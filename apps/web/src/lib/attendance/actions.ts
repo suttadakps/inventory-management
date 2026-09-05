@@ -38,11 +38,13 @@ export async function getAttendanceAction(
   return repo.listAttendance(projectId, date);
 }
 
-/** Toggle a worker's presence from the web checklist. */
-export async function toggleAttendanceAction(
+/** Set a worker's presence from the web checklist — idempotent, so both the
+ * checkbox and an explicit "บันทึก" confirm click can call it safely. */
+export async function setAttendanceAction(
   projectId: string,
   workerId: string,
-  dateStr: string
+  dateStr: string,
+  present: boolean
 ): Promise<InlineResult> {
   const user = await requireUser();
   if (!(await ensureCanEdit(user, projectId)))
@@ -51,7 +53,7 @@ export async function toggleAttendanceAction(
   const date = parseDate(dateStr);
   if (!date) return { ok: false, error: "วันที่ไม่ถูกต้อง" };
 
-  await repo.toggleAttendance(projectId, workerId, date, user.id);
+  await repo.setAttendance(projectId, workerId, date, present, user.id);
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/wages");
   return { ok: true };

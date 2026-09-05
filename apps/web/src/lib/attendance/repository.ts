@@ -135,8 +135,36 @@ export async function listAttendance(
   }));
 }
 
-/** Toggle a worker's presence for a project on a date, syncing a matching
- * wage entry (สรุปค่าแรง) at the worker's daily rate. Returns the new state. */
+/** Set a worker's presence to exactly `present`, syncing a matching wage
+ * entry (สรุปค่าแรง) at the worker's daily rate. Idempotent — safe to call
+ * again with the same value (e.g. an explicit "บันทึก" confirm click)
+ * without accidentally flipping an already-correct state. */
+export async function setAttendance(
+  projectId: string,
+  workerId: string,
+  date: Date,
+  present: boolean,
+  actorId: string | null
+): Promise<void> {
+  const existing = await prisma.workerAttendance.findUnique({
+    where: { projectId_workerId_date: { projectId, workerId, date } },
+  });
+  if (present) {
+    if (!existing) {
+      await prisma.workerAttendance.create({
+        data: { projectId, workerId, date, createdById: actorId },
+      });
+      await createAutoWage(projectId, workerId, date, actorId);
+    }
+    await unmarkNoWorkDay(projectId, date);
+  } else if (existing) {
+    await prisma.workerAttendance.delete({ where: { id: existing.id } });
+    await removeAutoWage(projectId, workerId, date);
+  }
+}
+
+/** Toggle a worker's presence for a project on a date. Returns the new state.
+ * Used by LINE, where a button tap has no "current checkbox" to read from. */
 export async function toggleAttendance(
   projectId: string,
   workerId: string,
@@ -146,17 +174,8 @@ export async function toggleAttendance(
   const existing = await prisma.workerAttendance.findUnique({
     where: { projectId_workerId_date: { projectId, workerId, date } },
   });
-  if (existing) {
-    await prisma.workerAttendance.delete({ where: { id: existing.id } });
-    await removeAutoWage(projectId, workerId, date);
-    return false;
-  }
-  await prisma.workerAttendance.create({
-    data: { projectId, workerId, date, createdById: actorId },
-  });
-  await createAutoWage(projectId, workerId, date, actorId);
-  await unmarkNoWorkDay(projectId, date);
-  return true;
+  await setAttendance(projectId, workerId, date, !existing, actorId);
+  return !existing;
 }
 
 /** Mark a worker present without toggling — used by the LINE text-command
