@@ -17,6 +17,7 @@ const dateFmt = new Intl.DateTimeFormat("en-US", {
 const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
   unpaid: { label: "ค้างจ่าย", tone: "amber" },
   paid: { label: "จ่ายแล้ว", tone: "green" },
+  cancelled: { label: "ยกเลิก", tone: "gray" },
 };
 
 export function WageWorkerGroup({
@@ -35,9 +36,12 @@ export function WageWorkerGroup({
   const [open, setOpen] = useState(false);
 
   const roleLabel = rows.find((r) => r.roleLabel)?.roleLabel ?? null;
-  const totalDays = rows.reduce((s, r) => s + r.daysWorked, 0);
-  const totalAmount = rows.reduce((s, r) => s + r.amount, 0);
-  const paidCount = rows.filter((r) => r.status === "paid").length;
+  // Cancelled rows stay listed underneath but are left out of the summary row.
+  const counted = rows.filter((r) => r.status !== "cancelled");
+  const cancelledCount = rows.length - counted.length;
+  const totalDays = counted.reduce((s, r) => s + r.daysWorked, 0);
+  const totalAmount = counted.reduce((s, r) => s + r.amount, 0);
+  const paidCount = counted.filter((r) => r.status === "paid").length;
 
   const projectNames = Array.from(
     new Set(rows.map((r) => r.projectName ?? "—"))
@@ -48,11 +52,16 @@ export function WageWorkerGroup({
       : `หลายโปรเจค (${projectNames.length})`;
 
   const aggStatus =
-    paidCount === rows.length
-      ? { label: "จ่ายแล้ว", tone: "green" as StatusTone }
-      : paidCount === 0
-        ? { label: "ค้างจ่าย", tone: "amber" as StatusTone }
-        : { label: `จ่ายแล้ว ${paidCount}/${rows.length}`, tone: "navy" as StatusTone };
+    counted.length === 0
+      ? { label: "ยกเลิกทั้งหมด", tone: "gray" as StatusTone }
+      : paidCount === counted.length
+        ? { label: "จ่ายแล้ว", tone: "green" as StatusTone }
+        : paidCount === 0
+          ? { label: "ค้างจ่าย", tone: "amber" as StatusTone }
+          : {
+              label: `จ่ายแล้ว ${paidCount}/${counted.length}`,
+              tone: "navy" as StatusTone,
+            };
 
   return (
     <>
@@ -68,7 +77,8 @@ export function WageWorkerGroup({
             {workerName}
             {rows.length > 1 && (
               <span className="text-caption font-normal text-text-secondary">
-                ({rows.length} รายการ)
+                ({rows.length} รายการ
+                {cancelledCount > 0 ? `, ยกเลิก ${cancelledCount}` : ""})
               </span>
             )}
           </div>

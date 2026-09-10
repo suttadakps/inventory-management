@@ -52,8 +52,10 @@ export default async function WagesPage({
       (!sp.workerName || r.workerName === sp.workerName)
   );
   const hasFilter = Boolean(sp.projectId || sp.workerName);
-  const visibleTotal = visibleRows.reduce((s, r) => s + r.amount, 0);
-  const visiblePaid = visibleRows
+  // Cancelled rows still show in the table, but count toward no total.
+  const countedRows = visibleRows.filter((r) => r.status !== "cancelled");
+  const visibleTotal = countedRows.reduce((s, r) => s + r.amount, 0);
+  const visiblePaid = countedRows
     .filter((r) => r.status === "paid")
     .reduce((s, r) => s + r.amount, 0);
   const visibleUnpaid = visibleTotal - visiblePaid;

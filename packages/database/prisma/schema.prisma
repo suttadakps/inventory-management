@@ -1136,6 +1136,7 @@ enum DisbursementStatus {
 enum WageStatus {
   unpaid
   paid
+  cancelled
 
   @@map("wage_status")
 }

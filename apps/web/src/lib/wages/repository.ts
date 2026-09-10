@@ -65,8 +65,11 @@ export async function listWages(user: CurrentUser): Promise<WageSummary> {
     status: w.status,
   }));
 
-  const total = mapped.reduce((s, r) => s + r.amount, 0);
-  const paid = mapped
+  // A cancelled row is neither owed nor paid — it stays visible for history
+  // but is left out of every total.
+  const counted = mapped.filter((r) => r.status !== "cancelled");
+  const total = counted.reduce((s, r) => s + r.amount, 0);
+  const paid = counted
     .filter((r) => r.status === "paid")
     .reduce((s, r) => s + r.amount, 0);
 
@@ -119,6 +122,22 @@ export async function markWagePaid(
 }
 
 export async function unmarkWagePaid(id: string): Promise<void> {
+  await prisma.wageEntry.update({
+    where: { id },
+    data: { status: "unpaid", paidAt: null },
+  });
+}
+
+/** Void a wage row — kept for history, but counted as neither owed nor paid. */
+export async function cancelWage(id: string): Promise<void> {
+  await prisma.wageEntry.update({
+    where: { id },
+    data: { status: "cancelled", paidAt: null },
+  });
+}
+
+/** Bring a cancelled row back as outstanding. */
+export async function uncancelWage(id: string): Promise<void> {
   await prisma.wageEntry.update({
     where: { id },
     data: { status: "unpaid", paidAt: null },

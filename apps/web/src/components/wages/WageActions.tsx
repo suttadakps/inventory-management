@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   markWagePaidAction,
   unmarkWagePaidAction,
+  cancelWageAction,
+  uncancelWageAction,
   deleteWageAction,
 } from "@/lib/wages/actions";
 
@@ -56,6 +58,30 @@ export function WageActions({
     );
   };
 
+  if (status === "cancelled") {
+    return (
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => run(() => uncancelWageAction(id))}
+          className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
+        >
+          คืนสถานะ
+        </button>
+        <button
+          type="button"
+          disabled={pending}
+          aria-label="ลบ"
+          onClick={() => run(() => deleteWageAction(id))}
+          className="text-text-secondary hover:text-danger disabled:opacity-50"
+        >
+          ×
+        </button>
+      </div>
+    );
+  }
+
   if (status === "unpaid") {
     return (
       <div className="space-y-1.5">
@@ -98,6 +124,14 @@ export function WageActions({
           <button
             type="button"
             disabled={pending}
+            onClick={() => run(() => cancelWageAction(id))}
+            className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
+          >
+            ยกเลิก
+          </button>
+          <button
+            type="button"
+            disabled={pending}
             aria-label="ลบ"
             onClick={() => run(() => deleteWageAction(id))}
             className="text-text-secondary hover:text-danger disabled:opacity-50"
@@ -119,6 +153,14 @@ export function WageActions({
         className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
       >
         ยกเลิกจ่าย
+      </button>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run(() => cancelWageAction(id))}
+        className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
+      >
+        ยกเลิกรายการ
       </button>
       <button
         type="button"

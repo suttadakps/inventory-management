@@ -70,6 +70,24 @@ export async function unmarkWagePaidAction(id: string): Promise<WageResult> {
   return { ok: true };
 }
 
+export async function cancelWageAction(id: string): Promise<WageResult> {
+  const user = await requireUser();
+  if (!repo.canManageWages(user.role))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
+  await repo.cancelWage(id);
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
+export async function uncancelWageAction(id: string): Promise<WageResult> {
+  const user = await requireUser();
+  if (!repo.canManageWages(user.role))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
+  await repo.uncancelWage(id);
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
 export async function deleteWageAction(id: string): Promise<WageResult> {
   const user = await requireUser();
   if (!repo.canManageWages(user.role))
