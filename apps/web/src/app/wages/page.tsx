@@ -52,17 +52,23 @@ export default async function WagesPage({
       (!sp.workerName || r.workerName === sp.workerName)
   );
   const hasFilter = Boolean(sp.projectId || sp.workerName);
-  // Cancelled rows still show in the table, but count toward no total.
-  const countedRows = visibleRows.filter((r) => r.status !== "cancelled");
+  // Cancelled and overpaid rows still show in the table, but neither counts
+  // as a wage — overpaid gets its own card instead.
+  const countedRows = visibleRows.filter(
+    (r) => r.status !== "cancelled" && r.status !== "overpaid"
+  );
   const visibleTotal = countedRows.reduce((s, r) => s + r.amount, 0);
   const visiblePaid = countedRows
     .filter((r) => r.status === "paid")
     .reduce((s, r) => s + r.amount, 0);
   const visibleUnpaid = visibleTotal - visiblePaid;
+  const visibleOverpaid = visibleRows
+    .filter((r) => r.status === "overpaid")
+    .reduce((s, r) => s + r.amount, 0);
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <MetricCard label="ค่าแรงรวม" value={formatBaht(visibleTotal, true)} />
         <MetricCard
           label="จ่ายแล้ว"
@@ -73,6 +79,12 @@ export default async function WagesPage({
           label="ค้างจ่าย"
           value={formatBaht(visibleUnpaid, true)}
           tone="orange"
+        />
+        <MetricCard
+          label="จ่ายเกิน"
+          value={formatBaht(visibleOverpaid, true)}
+          sub="หักคืนเดือนถัดไป"
+          tone="red"
         />
       </div>
 

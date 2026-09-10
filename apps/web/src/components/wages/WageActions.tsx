@@ -8,6 +8,7 @@ import {
   unmarkWagePaidAction,
   cancelWageAction,
   uncancelWageAction,
+  markWageOverpaidAction,
   deleteWageAction,
 } from "@/lib/wages/actions";
 
@@ -58,7 +59,7 @@ export function WageActions({
     );
   };
 
-  if (status === "cancelled") {
+  if (status === "cancelled" || status === "overpaid") {
     return (
       <div className="flex items-center justify-end gap-2">
         <button
@@ -124,6 +125,14 @@ export function WageActions({
           <button
             type="button"
             disabled={pending}
+            onClick={() => run(() => markWageOverpaidAction(id))}
+            className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-danger hover:bg-[#faf8f3] disabled:opacity-60"
+          >
+            จ่ายเกิน
+          </button>
+          <button
+            type="button"
+            disabled={pending}
             onClick={() => run(() => cancelWageAction(id))}
             className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
           >
@@ -153,6 +162,14 @@ export function WageActions({
         className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-text-secondary hover:bg-[#faf8f3] disabled:opacity-60"
       >
         ยกเลิกจ่าย
+      </button>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() => run(() => markWageOverpaidAction(id))}
+        className="inline-flex h-8 items-center rounded-md border border-[#e2ddd0] px-2.5 text-caption font-medium text-danger hover:bg-[#faf8f3] disabled:opacity-60"
+      >
+        จ่ายเกิน
       </button>
       <button
         type="button"

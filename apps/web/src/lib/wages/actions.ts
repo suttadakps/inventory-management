@@ -79,6 +79,15 @@ export async function cancelWageAction(id: string): Promise<WageResult> {
   return { ok: true };
 }
 
+export async function markWageOverpaidAction(id: string): Promise<WageResult> {
+  const user = await requireUser();
+  if (!repo.canManageWages(user.role))
+    return { ok: false, error: "ไม่มีสิทธิ์" };
+  await repo.markWageOverpaid(id);
+  revalidatePath("/wages");
+  return { ok: true };
+}
+
 export async function uncancelWageAction(id: string): Promise<WageResult> {
   const user = await requireUser();
   if (!repo.canManageWages(user.role))

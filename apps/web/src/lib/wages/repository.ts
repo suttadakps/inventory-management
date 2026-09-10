@@ -38,6 +38,9 @@ export type WageSummary = {
   total: number;
   paid: number;
   unpaid: number;
+  /** Advances taken beyond what was earned — owed back by the worker,
+   * usually deducted from the next month. */
+  overpaid: number;
   rows: WageRow[];
 };
 
@@ -65,15 +68,21 @@ export async function listWages(user: CurrentUser): Promise<WageSummary> {
     status: w.status,
   }));
 
-  // A cancelled row is neither owed nor paid — it stays visible for history
-  // but is left out of every total.
-  const counted = mapped.filter((r) => r.status !== "cancelled");
+  // A cancelled row is neither owed nor paid, and an overpaid row is an
+  // advance beyond earnings rather than a wage — both stay visible for
+  // history but are kept out of the wage totals.
+  const counted = mapped.filter(
+    (r) => r.status !== "cancelled" && r.status !== "overpaid"
+  );
   const total = counted.reduce((s, r) => s + r.amount, 0);
   const paid = counted
     .filter((r) => r.status === "paid")
     .reduce((s, r) => s + r.amount, 0);
+  const overpaid = mapped
+    .filter((r) => r.status === "overpaid")
+    .reduce((s, r) => s + r.amount, 0);
 
-  return { total, paid, unpaid: total - paid, rows: mapped };
+  return { total, paid, unpaid: total - paid, overpaid, rows: mapped };
 }
 
 export async function createWage(
@@ -136,7 +145,15 @@ export async function cancelWage(id: string): Promise<void> {
   });
 }
 
-/** Bring a cancelled row back as outstanding. */
+/** Flag a row as an advance taken beyond earnings, owed back by the worker. */
+export async function markWageOverpaid(id: string): Promise<void> {
+  await prisma.wageEntry.update({
+    where: { id },
+    data: { status: "overpaid", paidAt: null },
+  });
+}
+
+/** Bring a cancelled or overpaid row back as outstanding. */
 export async function uncancelWage(id: string): Promise<void> {
   await prisma.wageEntry.update({
     where: { id },

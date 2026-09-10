@@ -11,14 +11,16 @@ export function MetricCard({
   label: string;
   value: string;
   sub?: string;
-  tone?: "navy" | "green" | "orange";
+  tone?: "navy" | "green" | "orange" | "red";
 }) {
   const valueColor =
     tone === "green"
       ? "text-success"
       : tone === "orange"
         ? "text-accent-600"
-        : "text-text-primary";
+        : tone === "red"
+          ? "text-danger"
+          : "text-text-primary";
   return (
     <div className="rounded-lg border border-[#ece7db] bg-white p-5 shadow-1">
       <div className="text-body-sm font-medium text-text-secondary">

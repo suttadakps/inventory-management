@@ -18,6 +18,7 @@ const STATUS_TH: Record<string, { label: string; tone: StatusTone }> = {
   unpaid: { label: "ค้างจ่าย", tone: "amber" },
   paid: { label: "จ่ายแล้ว", tone: "green" },
   cancelled: { label: "ยกเลิก", tone: "gray" },
+  overpaid: { label: "จ่ายเกิน", tone: "red" },
 };
 
 export function WageWorkerGroup({
@@ -36,9 +37,15 @@ export function WageWorkerGroup({
   const [open, setOpen] = useState(false);
 
   const roleLabel = rows.find((r) => r.roleLabel)?.roleLabel ?? null;
-  // Cancelled rows stay listed underneath but are left out of the summary row.
-  const counted = rows.filter((r) => r.status !== "cancelled");
-  const cancelledCount = rows.length - counted.length;
+  // Cancelled and overpaid rows stay listed underneath but are left out of
+  // the summary row's wage figures.
+  const counted = rows.filter(
+    (r) => r.status !== "cancelled" && r.status !== "overpaid"
+  );
+  const cancelledCount = rows.filter((r) => r.status === "cancelled").length;
+  const overpaidAmount = rows
+    .filter((r) => r.status === "overpaid")
+    .reduce((s, r) => s + r.amount, 0);
   const totalDays = counted.reduce((s, r) => s + r.daysWorked, 0);
   const totalAmount = counted.reduce((s, r) => s + r.amount, 0);
   const paidCount = counted.filter((r) => r.status === "paid").length;
@@ -53,7 +60,9 @@ export function WageWorkerGroup({
 
   const aggStatus =
     counted.length === 0
-      ? { label: "ยกเลิกทั้งหมด", tone: "gray" as StatusTone }
+      ? overpaidAmount > 0
+        ? { label: "จ่ายเกิน", tone: "red" as StatusTone }
+        : { label: "ยกเลิกทั้งหมด", tone: "gray" as StatusTone }
       : paidCount === counted.length
         ? { label: "จ่ายแล้ว", tone: "green" as StatusTone }
         : paidCount === 0
@@ -84,6 +93,11 @@ export function WageWorkerGroup({
           </div>
           {roleLabel && (
             <div className="ml-4 text-caption text-text-secondary">{roleLabel}</div>
+          )}
+          {overpaidAmount > 0 && (
+            <div className="ml-4 text-caption text-danger">
+              จ่ายเกิน {formatBaht(overpaidAmount, true)} — หักคืนเดือนถัดไป
+            </div>
           )}
         </td>
         <td className="px-6 py-4 align-top text-text-secondary">{projectLabel}</td>
