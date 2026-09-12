@@ -2,6 +2,7 @@ import { cache } from "react";
 import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { prisma } from "@/lib/db";
 import { isRole, type Role } from "./roles";
 
 /**
@@ -33,18 +34,20 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
 
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, role")
-    .eq("id", user.id)
-    .single();
+  // Read the profile through Prisma rather than Supabase's REST API: it's the
+  // same `profiles` table, but over the pooled Postgres connection this app
+  // already holds, which saves an HTTP round trip on every single request.
+  const profile = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { fullName: true, role: true },
+  });
 
   const role: Role = isRole(profile?.role) ? profile.role : "client";
 
   return {
     id: user.id,
     email: user.email ?? "",
-    fullName: profile?.full_name ?? null,
+    fullName: profile?.fullName ?? null,
     role,
   };
 });

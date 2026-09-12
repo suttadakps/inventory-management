@@ -5,18 +5,16 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import {
   saveAttendanceDayAction,
   sendCheckinRollCallAction,
-  getAttendanceAction,
   addCheckinWorkerAction,
-  listCheckinWorkersAction,
   getAttendanceHistoryAction,
+  getAttendanceSnapshotAction,
   renameCheckinWorkerAction,
   deleteAttendanceDayAction,
-  getNoWorkDayAction,
   setNoWorkDayAction,
 } from "@/lib/attendance/actions";
 import type { CheckinWorkerItem, AttendanceHistoryDay } from "@/lib/attendance/repository";
 
-const POLL_MS = 10_000;
+const POLL_MS = 30_000;
 
 const todayStr = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
 
@@ -78,14 +76,14 @@ export function ProjectAttendance({
   dateRef.current = date;
   useEffect(() => {
     let cancelled = false;
-    getAttendanceAction(projectId, date).then((rows) => {
+    getAttendanceSnapshotAction(projectId, date).then((snap) => {
       if (cancelled) return;
-      const ids = new Set(rows.map((r) => r.workerId));
+      const ids = new Set(snap.marks.map((r) => r.workerId));
       setPresentIds(ids);
       setSavedIds(ids);
-    });
-    getNoWorkDayAction(projectId, date).then((v) => {
-      if (!cancelled) setNoWork(v);
+      setNoWork(snap.noWork);
+      setWorkers(snap.workers);
+      setHistory(snap.history);
     });
     return () => {
       cancelled = true;
@@ -93,24 +91,21 @@ export function ProjectAttendance({
   }, [projectId, date]);
 
   // Poll so a tap in LINE (or a name added from another tab) shows up here —
-  // but never overwrite ticks that haven't been saved yet.
+  // but never overwrite ticks that haven't been saved yet. One request per
+  // tick, and none at all while the tab is in the background.
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   useEffect(() => {
     const interval = setInterval(async () => {
-      const [rows, latestWorkers, latestHistory, latestNoWork] = await Promise.all([
-        getAttendanceAction(projectId, dateRef.current),
-        listCheckinWorkersAction(),
-        getAttendanceHistoryAction(projectId),
-        getNoWorkDayAction(projectId, dateRef.current),
-      ]);
-      setWorkers(latestWorkers);
-      setHistory(latestHistory);
+      if (typeof document !== "undefined" && document.hidden) return;
+      const snap = await getAttendanceSnapshotAction(projectId, dateRef.current);
+      setWorkers(snap.workers);
+      setHistory(snap.history);
       if (dirtyRef.current) return;
-      const ids = new Set(rows.map((r) => r.workerId));
+      const ids = new Set(snap.marks.map((r) => r.workerId));
       setPresentIds(ids);
       setSavedIds(ids);
-      setNoWork(latestNoWork);
+      setNoWork(snap.noWork);
     }, POLL_MS);
     return () => clearInterval(interval);
   }, [projectId]);

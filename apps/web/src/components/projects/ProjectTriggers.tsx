@@ -23,7 +23,7 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-US", {
 });
 
 const todayStr = () => new Date().toISOString().slice(0, 10);
-const POLL_MS = 10_000;
+const POLL_MS = 30_000;
 
 export function ProjectTriggers({
   projectId,
@@ -51,6 +51,7 @@ export function ProjectTriggers({
   itemsRef.current = items;
   useEffect(() => {
     const interval = setInterval(async () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       const latest = await getProjectTriggersAction(projectId);
       const changed =
         latest.length !== itemsRef.current.length ||

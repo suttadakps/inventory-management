@@ -26,16 +26,36 @@ async function ensureCanEdit(
   return canEditProject(user.role, { isManager, isAssignedEngineer });
 }
 
-/** Re-fetch a project's attendance for a date (used by the client poll for LINE-side taps). */
-export async function getAttendanceAction(
+export type AttendanceSnapshot = {
+  marks: repo.AttendanceMark[];
+  workers: repo.CheckinWorkerItem[];
+  history: repo.AttendanceHistoryDay[];
+  noWork: boolean;
+};
+
+/**
+ * Everything the check-in card polls for, in one round trip. Split across
+ * four actions this cost four authenticated requests every poll — enough
+ * traffic to slow the page down and, with several refreshing the Supabase
+ * session at once, to knock the user out of their session entirely.
+ */
+export async function getAttendanceSnapshotAction(
   projectId: string,
   dateStr: string
-): Promise<repo.AttendanceMark[]> {
+): Promise<AttendanceSnapshot> {
   const user = await requireUser();
   const project = await getProjectForUser(user, projectId);
   const date = parseDate(dateStr);
-  if (!project || !date) return [];
-  return repo.listAttendance(projectId, date);
+  if (!project || !date)
+    return { marks: [], workers: [], history: [], noWork: false };
+
+  const [marks, workers, history, noWork] = await Promise.all([
+    repo.listAttendance(projectId, date),
+    repo.listCheckinWorkers(),
+    repo.listAttendanceHistory(projectId),
+    repo.isNoWorkDay(projectId, date),
+  ]);
+  return { marks, workers, history, noWork };
 }
 
 /** Save the whole day's check-in from the web checklist in one go — the
@@ -74,18 +94,6 @@ export async function deleteAttendanceDayAction(
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/wages");
   return { ok: true };
-}
-
-/** Re-fetch whether the given date is currently marked "หยุดงาน" for this project. */
-export async function getNoWorkDayAction(
-  projectId: string,
-  dateStr: string
-): Promise<boolean> {
-  const user = await requireUser();
-  const project = await getProjectForUser(user, projectId);
-  const date = parseDate(dateStr);
-  if (!project || !date) return false;
-  return repo.isNoWorkDay(projectId, date);
 }
 
 /** Mark/unmark a date as "หยุดงาน" — marking clears any attendance already
