@@ -11,6 +11,7 @@ import {
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Alert } from "@/components/ui/Alert";
+import { COMPANY_TAX_ID } from "@/lib/company";
 
 const MONTHS_TH = [
   "มกราคม",
@@ -42,7 +43,10 @@ export function VatFilingForm({
   const [, startTransition] = useTransition();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<VatFormInput>(initial);
+  const [form, setForm] = useState<VatFormInput>({
+    ...initial,
+    payerTaxId: initial.payerTaxId || COMPANY_TAX_ID,
+  });
 
   const set = <K extends keyof VatFormInput>(key: K, value: VatFormInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));

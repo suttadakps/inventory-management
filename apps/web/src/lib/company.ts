@@ -2,3 +2,5 @@
 export const COMPANY_NAME = "บจก.อาร์ติเวอร์จ เน็กส์ จำกัด";
 export const COMPANY_ADDRESS =
   "23/71 หมู่บ้านพิศาล ประชาอุทิศ ถนนเลียบทางด่วน เขตทุ่งครุ แขวงทุ่งครุ กรุงเทพ 10140";
+/** Prefilled as the payer tax ID on every ทวิ 50 / ภ.พ.30 — it never varies. */
+export const COMPANY_TAX_ID = "0105569105645";

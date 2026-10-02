@@ -11,6 +11,7 @@ import {
 import { createWorkerFromWhtAction } from "@/lib/workers/actions";
 import type { WhtCertificateItem } from "@/lib/wht/repository";
 import type { WorkerItem } from "@/lib/workers/repository";
+import { COMPANY_TAX_ID } from "@/lib/company";
 import { Input } from "@/components/ui/Input";
 import { Label } from "@/components/ui/Label";
 import { Select } from "@/components/ui/Select";
@@ -53,7 +54,7 @@ export function WhtCertificateForm({
     filingForm: initial.filingForm ?? "pnd3",
     bookNo: initial.bookNo ?? "",
     docNo: initial.docNo ?? "",
-    payerTaxId: initial.payerTaxId ?? "",
+    payerTaxId: initial.payerTaxId || COMPANY_TAX_ID,
     payeeTaxId: initial.payeeTaxId ?? "",
     payeeName: initial.payeeName ?? "",
     payeeAddress: initial.payeeAddress ?? "",
