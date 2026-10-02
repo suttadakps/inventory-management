@@ -14,6 +14,8 @@ export type WorkerFormInput = {
   position: string;
   phone: string;
   address: string;
+  bankName: string;
+  bankAccount: string;
 };
 
 export type WorkerResult = { ok: true; id: string } | { ok: false; error: string };
@@ -28,6 +30,8 @@ function toRepoInput(input: WorkerFormInput): WorkerInput | { error: string } {
     position: input.position.trim() || null,
     phone: input.phone.trim() || null,
     address: input.address.trim() || null,
+    bankName: input.bankName.trim() || null,
+    bankAccount: input.bankAccount.trim() || null,
   };
 }
 
@@ -89,6 +93,8 @@ export async function createWorkerFromWhtAction(input: {
       position: null,
       phone: null,
       address: input.address?.trim() || null,
+      bankName: null,
+      bankAccount: null,
     },
     user.id
   );

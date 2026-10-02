@@ -7,6 +7,8 @@ export type WorkerItem = {
   position: string | null;
   phone: string | null;
   address: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
   createdAt: string;
 };
 
@@ -17,6 +19,8 @@ function toItem(row: {
   position: string | null;
   phone: string | null;
   address: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
   createdAt: Date;
 }): WorkerItem {
   return {
@@ -26,6 +30,8 @@ function toItem(row: {
     position: row.position,
     phone: row.phone,
     address: row.address,
+    bankName: row.bankName,
+    bankAccount: row.bankAccount,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -36,6 +42,8 @@ export type WorkerInput = {
   position: string | null;
   phone: string | null;
   address: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
 };
 
 export async function listWorkers(): Promise<WorkerItem[]> {
@@ -59,6 +67,8 @@ export async function createWorker(
       position: input.position,
       phone: input.phone,
       address: input.address,
+      bankName: input.bankName,
+      bankAccount: input.bankAccount,
       createdById: actorId,
     },
     select: { id: true },
@@ -78,6 +88,8 @@ export async function updateWorker(
       position: input.position,
       phone: input.phone,
       address: input.address,
+      bankName: input.bankName,
+      bankAccount: input.bankAccount,
     },
   });
 }

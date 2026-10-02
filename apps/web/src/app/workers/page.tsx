@@ -36,12 +36,13 @@ export default async function WorkersListPage() {
         </div>
       ) : (
         <ContentCard className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-left text-body-sm">
+          <table className="w-full min-w-[860px] text-left text-body-sm">
             <thead className="border-b border-[#f0ece2] text-caption font-medium uppercase tracking-wide text-text-secondary">
               <tr>
                 <th className="px-6 py-3">ชื่อ</th>
                 <th className="px-6 py-3">ตำแหน่ง</th>
                 <th className="px-6 py-3">เบอร์โทร</th>
+                <th className="px-6 py-3">บัญชีธนาคาร</th>
                 <th className="px-6 py-3">เลขประจำตัวผู้เสียภาษี</th>
               </tr>
             </thead>
@@ -61,6 +62,20 @@ export default async function WorkersListPage() {
                   </td>
                   <td className="px-6 py-4 align-top text-text-secondary">
                     {w.phone ?? "—"}
+                  </td>
+                  <td className="px-6 py-4 align-top text-text-secondary">
+                    {w.bankAccount ? (
+                      <>
+                        {w.bankAccount}
+                        {w.bankName && (
+                          <span className="block text-caption">
+                            {w.bankName}
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-6 py-4 align-top text-text-secondary">
                     {w.taxId ?? "—"}

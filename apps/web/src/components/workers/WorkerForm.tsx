@@ -33,6 +33,8 @@ export function WorkerForm({
     position: initial.position ?? "",
     phone: initial.phone ?? "",
     address: initial.address ?? "",
+    bankName: initial.bankName ?? "",
+    bankAccount: initial.bankAccount ?? "",
   });
 
   const set = <K extends keyof WorkerFormInput>(
@@ -88,8 +90,11 @@ export function WorkerForm({
         <div className="space-y-1.5">
           <Label>เบอร์โทร</Label>
           <Input
+            type="tel"
+            inputMode="tel"
             value={form.phone}
             onChange={(e) => set("phone", e.target.value)}
+            placeholder="08X-XXX-XXXX"
             className={inputCls}
           />
         </div>
@@ -99,6 +104,24 @@ export function WorkerForm({
             value={form.taxId}
             onChange={(e) => set("taxId", e.target.value)}
             placeholder="13 หลัก"
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>ธนาคาร</Label>
+          <Input
+            value={form.bankName}
+            onChange={(e) => set("bankName", e.target.value)}
+            placeholder="เช่น กสิกรไทย"
+            className={inputCls}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label>เลขบัญชีธนาคาร</Label>
+          <Input
+            value={form.bankAccount}
+            onChange={(e) => set("bankAccount", e.target.value)}
+            placeholder="เช่น 234-8-60938-9"
             className={inputCls}
           />
         </div>

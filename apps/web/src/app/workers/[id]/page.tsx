@@ -30,6 +30,8 @@ export default async function WorkerDetailPage({
     position: worker.position ?? "",
     phone: worker.phone ?? "",
     address: worker.address ?? "",
+    bankName: worker.bankName ?? "",
+    bankAccount: worker.bankAccount ?? "",
   };
 
   return (

@@ -632,6 +632,8 @@ model Worker {
   position    String?
   phone       String?
   address     String?
+  bankName    String?  @map("bank_name")
+  bankAccount String?  @map("bank_account")
   createdById String?  @map("created_by") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
