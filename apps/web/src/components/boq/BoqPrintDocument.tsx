@@ -3,8 +3,7 @@ import Image from "next/image";
 import type { BoqFlatDoc } from "@/lib/boq/repository";
 import { formatBaht } from "@/lib/format";
 import { PrintButton } from "@/components/boq/PrintButton";
-
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+import { computeQuote, round2 } from "@/lib/boq/quote-math";
 
 const DEFAULT_SCHEDULE = [
   { label: "งวดที่ 1", percent: 30 },
@@ -22,6 +21,19 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
   const site = doc.site || doc.project?.name || "—";
   const client = doc.clientName || doc.project?.clientName || "—";
   const schedule = doc.milestones.length > 0 ? doc.milestones : DEFAULT_SCHEDULE;
+
+  // When the 3% is being covered, the client sees it folded into each line
+  // price rather than added at the bottom — so quote the effective prices.
+  const quote = computeQuote(doc.lines, {
+    vatEnabled: doc.vatEnabled,
+    whtEnabled: doc.whtEnabled,
+    feeEnabled: doc.feeEnabled,
+  });
+  const rows = doc.lines.map((l, i) => ({
+    ...l,
+    unitPrice: quote.lines[i]?.unitPrice ?? l.unitPrice,
+    amount: quote.lines[i]?.amount ?? round2(l.quantity * l.unitPrice),
+  }));
 
   return (
     <div className="mx-auto max-w-3xl bg-white p-6 text-text-primary print:p-0">
@@ -76,7 +88,7 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
           </tr>
         </thead>
         <tbody>
-          {doc.lines.map((l, idx) => (
+          {rows.map((l, idx) => (
             <tr key={l.id} className="border-b border-neutral/15 align-top">
               <td className="py-1.5 pr-2">{l.sectionLabel || "—"}</td>
               <td className="py-1.5 pr-2">{idx + 1}</td>
@@ -94,7 +106,7 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
                 {formatBaht(l.unitPrice, true)}
               </td>
               <td className="py-1.5 text-right tabular-nums">
-                {formatBaht(round2(l.quantity * l.unitPrice), true)}
+                {formatBaht(l.amount, true)}
               </td>
             </tr>
           ))}
@@ -105,24 +117,36 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
         <div className="w-72 space-y-1 text-body-sm">
           <div className="flex justify-between">
             <span className="text-text-secondary">Subtotal</span>
-            <span className="tabular-nums">{formatBaht(doc.subtotal, true)}</span>
+            <span className="tabular-nums">{formatBaht(quote.subtotal, true)}</span>
           </div>
+          {doc.feeEnabled && (
+            <div className="flex justify-between">
+              <span className="text-text-secondary">ค่าดำเนินการ 10%</span>
+              <span className="tabular-nums">{formatBaht(quote.fee, true)}</span>
+            </div>
+          )}
+          {doc.feeEnabled && (
+            <div className="flex justify-between border-t border-neutral/20 pt-1">
+              <span className="text-text-secondary">ยอดก่อน VAT</span>
+              <span className="tabular-nums">{formatBaht(quote.preVat, true)}</span>
+            </div>
+          )}
           {doc.vatEnabled && (
             <div className="flex justify-between">
               <span className="text-text-secondary">VAT 7%</span>
-              <span className="tabular-nums">{formatBaht(doc.vat, true)}</span>
+              <span className="tabular-nums">{formatBaht(quote.vat, true)}</span>
             </div>
           )}
           {doc.whtEnabled && (
             <div className="flex justify-between">
               <span className="text-text-secondary">หัก ณ ที่จ่าย 3%</span>
-              <span className="tabular-nums">- {formatBaht(doc.wht, true)}</span>
+              <span className="tabular-nums">- {formatBaht(quote.wht, true)}</span>
             </div>
           )}
           <div className="flex justify-between border-t border-neutral/40 pt-1 text-body font-bold">
             <span>Grand Total</span>
             <span className="tabular-nums">
-              {formatBaht(doc.grandTotal, true)}
+              {formatBaht(quote.grandTotal, true)}
             </span>
           </div>
         </div>
@@ -138,7 +162,7 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
                   {s.label} ({s.percent}%)
                 </td>
                 <td className="py-0.5 text-right tabular-nums">
-                  {formatBaht(round2((doc.grandTotal * s.percent) / 100), true)}
+                  {formatBaht(round2((quote.grandTotal * s.percent) / 100), true)}
                 </td>
               </tr>
             ))}

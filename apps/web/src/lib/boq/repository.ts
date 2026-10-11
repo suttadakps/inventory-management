@@ -2,6 +2,7 @@ import { Prisma, type BoqStatus } from "@artiverges/database";
 import { prisma } from "@/lib/db";
 import type { CurrentUser } from "@/lib/auth/session";
 import { sumTotals, type BoqTotals, type ItemCosts } from "./calc";
+import { computeQuote } from "./quote-math";
 import { visibleStatusesFor } from "./permissions";
 import { canViewAllProjects } from "@/lib/projects/permissions";
 
@@ -679,35 +680,26 @@ export type BoqFlatDoc = {
   proposerName: string | null;
   vatEnabled: boolean;
   whtEnabled: boolean;
+  feeEnabled: boolean;
   terms: string | null;
   milestones: BoqMilestone[];
   site: string | null;
   clientName: string | null;
   docDate: string | null;
   project: { id: string; name: string; code: string; clientName: string } | null;
+  /** Prices as typed into the editor, before any 3% gross-up. */
   lines: BoqFlatLine[];
   subtotal: number;
+  baseSubtotal: number;
+  grossUp: number;
+  fee: number;
+  preVat: number;
   vat: number;
   wht: number;
   grandTotal: number;
 };
 
-const VAT_RATE = 0.07;
-const WHT_RATE = 0.03;
-
 const round2 = (n: number): number => Math.round((n + Number.EPSILON) * 100) / 100;
-
-export function computeFlatTotals(
-  lines: { total: number }[],
-  vatEnabled: boolean,
-  whtEnabled: boolean
-): { subtotal: number; vat: number; wht: number; grandTotal: number } {
-  const subtotal = round2(lines.reduce((s, l) => s + l.total, 0));
-  const vat = vatEnabled ? round2(subtotal * VAT_RATE) : 0;
-  const wht = whtEnabled ? round2(subtotal * WHT_RATE) : 0;
-  const grandTotal = round2(subtotal + vat - wht);
-  return { subtotal, vat, wht, grandTotal };
-}
 
 export async function getBoqFlat(
   user: CurrentUser,
@@ -753,6 +745,14 @@ export async function getBoqFlat(
     };
   });
 
+  // `lines` keeps the prices as typed, so the editor edits the real figures;
+  // the grossed-up copy computeQuote returns is rebuilt where it is displayed.
+  const { lines: _effectiveLines, ...totals } = computeQuote(lines, {
+    vatEnabled: b.vatEnabled,
+    whtEnabled: b.whtEnabled,
+    feeEnabled: b.feeEnabled,
+  });
+
   return {
     id: b.id,
     title: b.title,
@@ -761,6 +761,7 @@ export async function getBoqFlat(
     proposerName: b.proposerName,
     vatEnabled: b.vatEnabled,
     whtEnabled: b.whtEnabled,
+    feeEnabled: b.feeEnabled,
     terms: b.notes,
     milestones: parseMilestones(b.paymentSchedule),
     site: b.site,
@@ -775,7 +776,7 @@ export async function getBoqFlat(
         }
       : null,
     lines,
-    ...computeFlatTotals(lines, b.vatEnabled, b.whtEnabled),
+    ...totals,
   };
 }
 
@@ -845,6 +846,7 @@ export type BoqHeaderPatch = Partial<{
   proposerName: string;
   vatEnabled: boolean;
   whtEnabled: boolean;
+  feeEnabled: boolean;
   terms: string;
   milestones: BoqMilestone[];
   site: string;
@@ -861,6 +863,7 @@ export async function updateBoqHeader(
   if (patch.proposerName !== undefined) data.proposerName = patch.proposerName;
   if (patch.vatEnabled !== undefined) data.vatEnabled = patch.vatEnabled;
   if (patch.whtEnabled !== undefined) data.whtEnabled = patch.whtEnabled;
+  if (patch.feeEnabled !== undefined) data.feeEnabled = patch.feeEnabled;
   if (patch.terms !== undefined) data.notes = patch.terms;
   if (patch.milestones !== undefined) {
     data.paymentSchedule = patch.milestones as Prisma.InputJsonValue;
@@ -933,9 +936,14 @@ export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
   return boqs
     .map((b) => {
       const lines = b.lineItems.map((i) => ({
-        total: round2(i.quantity.toNumber() * i.sellingPrice.toNumber()),
+        quantity: i.quantity.toNumber(),
+        unitPrice: i.sellingPrice.toNumber(),
       }));
-      const { grandTotal } = computeFlatTotals(lines, b.vatEnabled, b.whtEnabled);
+      const { grandTotal } = computeQuote(lines, {
+        vatEnabled: b.vatEnabled,
+        whtEnabled: b.whtEnabled,
+        feeEnabled: b.feeEnabled,
+      });
       return {
         id: b.id,
         title: b.title,

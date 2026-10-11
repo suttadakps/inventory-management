@@ -257,6 +257,7 @@ model Boq {
   proposerName    String?         @map("proposer_name")
   vatEnabled      Boolean         @default(true) @map("vat_enabled")
   whtEnabled      Boolean         @default(true) @map("wht_enabled")
+  feeEnabled      Boolean         @default(false) @map("fee_enabled")
   paymentSchedule Json?           @map("payment_schedule")
   site            String?
   clientName      String?         @map("client_name")

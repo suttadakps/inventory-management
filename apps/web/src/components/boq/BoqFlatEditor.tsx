@@ -19,10 +19,7 @@ import {
 import { formatBaht } from "@/lib/format";
 import { Textarea } from "@/components/ui/Textarea";
 import { DecimalInput } from "@/components/ui/DecimalInput";
-
-const VAT_RATE = 0.07;
-const WHT_RATE = 0.03;
-const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+import { computeQuote, round2 } from "@/lib/boq/quote-math";
 
 const cellInput =
   "w-full rounded-md border border-[#e2ddd0] bg-[#f6f3ec] px-3 py-2 text-body-sm text-text-primary focus:border-primary-600 focus:bg-white focus:outline-none";
@@ -48,16 +45,16 @@ export function BoqFlatEditor({
   const [proposer, setProposer] = useState(doc.proposerName ?? "");
   const [vat, setVat] = useState(doc.vatEnabled);
   const [wht, setWht] = useState(doc.whtEnabled);
+  const [fee, setFee] = useState(doc.feeEnabled);
   const [rows, setRows] = useState<BoqFlatLine[]>(doc.lines);
   const [terms, setTerms] = useState(doc.terms ?? "");
   const [milestones, setMilestones] = useState<BoqMilestone[]>(doc.milestones);
 
-  const subtotal = round2(
-    rows.reduce((s, r) => s + r.quantity * r.unitPrice, 0)
-  );
-  const vatAmount = vat ? round2(subtotal * VAT_RATE) : 0;
-  const whtAmount = wht ? round2(subtotal * WHT_RATE) : 0;
-  const grandTotal = round2(subtotal + vatAmount - whtAmount);
+  const totals = computeQuote(rows, {
+    vatEnabled: vat,
+    whtEnabled: wht,
+    feeEnabled: fee,
+  });
 
   const patchRow = (id: string, patch: Partial<BoqFlatLine>) =>
     setRows((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -401,7 +398,7 @@ export function BoqFlatEditor({
                     </div>
                     <span className="flex-1 text-right text-body-sm tabular-nums text-text-primary">
                       {formatBaht(
-                        round2((grandTotal * (m.percent || 0)) / 100),
+                        round2((totals.grandTotal * (m.percent || 0)) / 100),
                         true
                       )}
                     </span>
@@ -477,7 +474,25 @@ export function BoqFlatEditor({
             />
           </label>
           <label className="flex items-center justify-between py-1.5 text-body-sm text-text-primary">
-            หัก WHT 3%
+            ค่าดำเนินการ 10%
+            <input
+              type="checkbox"
+              checked={fee}
+              disabled={!editable}
+              onChange={(e) => {
+                setFee(e.target.checked);
+                saveHeader({ feeEnabled: e.target.checked });
+              }}
+              className="h-4 w-4 rounded border-border text-primary-700"
+            />
+          </label>
+          <label className="flex items-start justify-between gap-3 py-1.5 text-body-sm text-text-primary">
+            <span>
+              หัก WHT 3%
+              <span className="block text-caption text-text-secondary">
+                บวกราคาคุม 3% เฉลี่ยลงทุกรายการ ให้ได้ยอดเท่าเดิมหลังถูกหัก
+              </span>
+            </span>
             <input
               type="checkbox"
               checked={wht}
@@ -486,22 +501,54 @@ export function BoqFlatEditor({
                 setWht(e.target.checked);
                 saveHeader({ whtEnabled: e.target.checked });
               }}
-              className="h-4 w-4 rounded border-border text-primary-700"
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-border text-primary-700"
             />
           </label>
 
           <div className="mt-3 space-y-1.5 border-t border-[#f0ece2] pt-3">
             <div className="flex justify-between text-body-sm text-text-secondary">
-              <span>Subtotal</span>
+              <span>{wht ? "ราคาตามที่กรอก" : "Subtotal"}</span>
               <span className="tabular-nums text-text-primary">
-                {formatBaht(subtotal, true)}
+                {formatBaht(totals.baseSubtotal, true)}
               </span>
             </div>
+            {wht && (
+              <>
+                <div className="flex justify-between text-body-sm text-text-secondary">
+                  <span>บวกราคาคุม 3%</span>
+                  <span className="tabular-nums text-text-primary">
+                    + {formatBaht(totals.grossUp, true)}
+                  </span>
+                </div>
+                <div className="flex justify-between text-body-sm text-text-secondary">
+                  <span>Subtotal (ราคาที่เสนอ)</span>
+                  <span className="tabular-nums text-text-primary">
+                    {formatBaht(totals.subtotal, true)}
+                  </span>
+                </div>
+              </>
+            )}
+            {fee && (
+              <div className="flex justify-between text-body-sm text-text-secondary">
+                <span>ค่าดำเนินการ 10%</span>
+                <span className="tabular-nums text-text-primary">
+                  {formatBaht(totals.fee, true)}
+                </span>
+              </div>
+            )}
+            {fee && (
+              <div className="flex justify-between text-body-sm text-text-secondary">
+                <span>ยอดก่อน VAT</span>
+                <span className="tabular-nums text-text-primary">
+                  {formatBaht(totals.preVat, true)}
+                </span>
+              </div>
+            )}
             {vat && (
               <div className="flex justify-between text-body-sm text-text-secondary">
                 <span>VAT 7%</span>
                 <span className="tabular-nums text-text-primary">
-                  {formatBaht(vatAmount, true)}
+                  {formatBaht(totals.vat, true)}
                 </span>
               </div>
             )}
@@ -509,14 +556,22 @@ export function BoqFlatEditor({
               <div className="flex justify-between text-body-sm text-text-secondary">
                 <span>หัก WHT 3%</span>
                 <span className="tabular-nums text-danger">
-                  - {formatBaht(whtAmount, true)}
+                  - {formatBaht(totals.wht, true)}
                 </span>
               </div>
             )}
             <div className="flex justify-between border-t border-[#f0ece2] pt-2 text-body font-bold text-text-primary">
               <span>Grand Total</span>
-              <span className="tabular-nums">{formatBaht(grandTotal, true)}</span>
+              <span className="tabular-nums">
+                {formatBaht(totals.grandTotal, true)}
+              </span>
             </div>
+            {wht && (
+              <p className="pt-1 text-caption text-text-secondary">
+                ได้รับสุทธิก่อน VAT {formatBaht(round2(totals.preVat - totals.wht), true)}{" "}
+                เท่ากับยอด{fee ? "ค่างาน + ค่าดำเนินการ" : "ค่างาน"}ที่ตั้งไว้
+              </p>
+            )}
           </div>
         </div>
       </div>
