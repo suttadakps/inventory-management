@@ -552,14 +552,6 @@ export function BoqFlatEditor({
                 </span>
               </div>
             )}
-            {wht && (
-              <div className="flex justify-between text-body-sm text-text-secondary">
-                <span>หัก WHT 3%</span>
-                <span className="tabular-nums text-danger">
-                  - {formatBaht(totals.wht, true)}
-                </span>
-              </div>
-            )}
             <div className="flex justify-between border-t border-[#f0ece2] pt-2 text-body font-bold text-text-primary">
               <span>Grand Total</span>
               <span className="tabular-nums">
@@ -567,10 +559,28 @@ export function BoqFlatEditor({
               </span>
             </div>
             {wht && (
-              <p className="pt-1 text-caption text-text-secondary">
-                ได้รับสุทธิก่อน VAT {formatBaht(round2(totals.preVat - totals.wht), true)}{" "}
-                เท่ากับยอด{fee ? "ค่างาน + ค่าดำเนินการ" : "ค่างาน"}ที่ตั้งไว้
-              </p>
+              <div className="mt-2 rounded-md bg-[#faf8f3] p-2.5 text-caption text-text-secondary">
+                <p className="mb-1 font-medium text-text-primary">
+                  ไม่แสดงในใบเสนอราคา (ข้อมูลภายใน)
+                </p>
+                <div className="flex justify-between">
+                  <span>ลูกค้าหัก ณ ที่จ่าย 3%</span>
+                  <span className="tabular-nums">
+                    - {formatBaht(totals.wht, true)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>ได้รับจริง</span>
+                  <span className="tabular-nums text-text-primary">
+                    {formatBaht(totals.netReceived, true)}
+                  </span>
+                </div>
+                <p className="mt-1">
+                  คิดเป็นค่างานก่อน VAT{" "}
+                  {formatBaht(round2(totals.preVat - totals.wht), true)} เท่ากับยอด
+                  {fee ? "ค่างาน + ค่าดำเนินการ" : "ค่างาน"}ที่ตั้งไว้
+                </p>
+              </div>
             )}
           </div>
         </div>

@@ -51,14 +51,22 @@ export type QuoteTotals = {
   /** subtotal + fee — the base for both VAT and the withholding. */
   preVat: number;
   vat: number;
+  /**
+   * The 3% the client will withhold when they pay. Never shown on the
+   * quotation: it is already priced into the lines, so printing it as a
+   * deduction would take it off twice. Kept for the editor's own summary.
+   */
   wht: number;
+  /** The amount actually billed — preVat + VAT, nothing deducted. */
   grandTotal: number;
+  /** What lands in the bank once the client takes their 3%. */
+  netReceived: number;
 };
 
 /**
  * Spreads the 3% cover across every line (so the client sees it priced in
- * rather than bolted on), then layers ค่าดำเนินการ, VAT and the withholding
- * on top. The fee rides on the grossed-up subtotal, so it is covered too.
+ * rather than bolted on), then layers ค่าดำเนินการ and VAT on top. The fee
+ * rides on the grossed-up subtotal, so it is covered too.
  */
 export function computeQuote(
   lines: QuoteLineInput[],
@@ -81,7 +89,7 @@ export function computeQuote(
   const preVat = round2(subtotal + fee);
   const vat = flags.vatEnabled ? round2(preVat * VAT_RATE) : 0;
   const wht = flags.whtEnabled ? round2(preVat * WHT_RATE) : 0;
-  const grandTotal = round2(preVat + vat - wht);
+  const grandTotal = round2(preVat + vat);
 
   return {
     lines: computed,
@@ -93,5 +101,6 @@ export function computeQuote(
     vat,
     wht,
     grandTotal,
+    netReceived: round2(grandTotal - wht),
   };
 }

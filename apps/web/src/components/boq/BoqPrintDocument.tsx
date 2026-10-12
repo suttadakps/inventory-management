@@ -137,12 +137,8 @@ export function BoqPrintDocument({ doc }: { doc: BoqFlatDoc }) {
               <span className="tabular-nums">{formatBaht(quote.vat, true)}</span>
             </div>
           )}
-          {doc.whtEnabled && (
-            <div className="flex justify-between">
-              <span className="text-text-secondary">หัก ณ ที่จ่าย 3%</span>
-              <span className="tabular-nums">- {formatBaht(quote.wht, true)}</span>
-            </div>
-          )}
+          {/* No หัก ณ ที่จ่าย line: the 3% is already inside the line prices,
+              so showing it here as well would deduct it a second time. */}
           <div className="flex justify-between border-t border-neutral/40 pt-1 text-body font-bold">
             <span>Grand Total</span>
             <span className="tabular-nums">
