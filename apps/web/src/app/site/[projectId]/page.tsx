@@ -5,12 +5,14 @@ import type { ProjectStatus } from "@artiverges/database";
 
 import { requireUser } from "@/lib/auth/session";
 import { getSiteProject } from "@/lib/site/repository";
-import { canUpdateSite } from "@/lib/site/permissions";
+import { canAnswerApproval, canUpdateSite } from "@/lib/site/permissions";
+import { canSeeMoney } from "@/lib/auth/roles";
 import { STATUS_TH } from "@/lib/projects/statusLabels";
 import { ContentCard } from "@/components/ui/ContentCard";
 import { StatusBadge, type StatusTone } from "@/components/ui/StatusBadge";
 import { SiteMilestones } from "@/components/site/SiteMilestones";
 import { SitePhotos } from "@/components/site/SitePhotos";
+import { SiteLog } from "@/components/site/SiteLog";
 
 export const metadata: Metadata = { title: "ความคืบหน้างาน · ARTIVERGES NEXT" };
 
@@ -27,10 +29,12 @@ export default async function SiteProjectPage({
 }) {
   const user = await requireUser();
   const { projectId } = await params;
-  const project = await getSiteProject(user, projectId);
+  const canSeeCost = canSeeMoney(user.role);
+  const project = await getSiteProject(user, projectId, canSeeCost);
   if (!project) notFound();
 
   const canEdit = canUpdateSite(user.role);
+  const canAnswer = canAnswerApproval(user.role);
   const st = STATUS_TH[project.status as ProjectStatus] ?? {
     label: project.status,
     tone: "gray" as StatusTone,
@@ -111,6 +115,20 @@ export default async function SiteProjectPage({
           projectId={project.id}
           milestones={project.milestones}
           canEdit={canEdit}
+        />
+      </ContentCard>
+
+      <ContentCard className="p-5">
+        <h2 className="mb-3 text-body font-semibold text-text-primary">
+          บันทึกหน้างาน
+        </h2>
+        <SiteLog
+          projectId={project.id}
+          log={project.log}
+          milestones={project.milestones}
+          canEdit={canEdit}
+          canAnswer={canAnswer}
+          canSeeCost={canSeeCost}
         />
       </ContentCard>
 

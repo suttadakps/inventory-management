@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   addMilestoneAction,
   deleteMilestoneAction,
+  setMilestoneInspectionAction,
+  setMilestoneProgressAction,
   setMilestoneStatusAction,
 } from "@/lib/site/actions";
 import type { SiteMilestone } from "@/lib/site/repository";
@@ -24,6 +26,27 @@ const NEXT: Record<string, "todo" | "in_progress" | "done"> = {
   blocked: "in_progress",
   done: "todo",
 };
+
+const INSPECTION: Record<string, { label: string; tone: StatusTone }> = {
+  not_required: { label: "", tone: "gray" },
+  pending: { label: "รอตรวจ", tone: "amber" },
+  passed: { label: "ตรวจผ่าน", tone: "green" },
+  failed: { label: "ต้องแก้ไข", tone: "red" },
+};
+
+/** รอตรวจ → ผ่าน → ต้องแก้ → ไม่ต้องตรวจ, cycling on tap. */
+const NEXT_INSPECTION: Record<
+  string,
+  "not_required" | "pending" | "passed" | "failed"
+> = {
+  not_required: "pending",
+  pending: "passed",
+  passed: "failed",
+  failed: "not_required",
+};
+
+const progInput =
+  "mt-0.5 h-9 w-full rounded-md border border-[#e2ddd0] bg-white px-2 text-body-sm text-text-primary focus:border-primary-600 focus:outline-none";
 
 const dateFmt = new Intl.DateTimeFormat("th-TH", {
   day: "numeric",
@@ -54,6 +77,44 @@ export function SiteMilestones({
   const [name, setName] = useState("");
   const [due, setDue] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [editing, setEditing] = useState<string | null>(null);
+  const [prog, setProg] = useState({
+    quantityDone: "",
+    quantityTotal: "",
+    quantityUnit: "",
+    location: "",
+    forecastEnd: "",
+  });
+
+  const openProgress = (m: SiteMilestone) => {
+    setEditing(m.id);
+    setProg({
+      quantityDone: m.quantityDone?.toString() ?? "",
+      quantityTotal: m.quantityTotal?.toString() ?? "",
+      quantityUnit: m.quantityUnit ?? "",
+      location: m.location ?? "",
+      forecastEnd: m.forecastEnd ?? "",
+    });
+  };
+
+  const saveProgress = (id: string) =>
+    startTransition(async () => {
+      const res = await setMilestoneProgressAction(id, prog);
+      if (res.ok) {
+        setEditing(null);
+        router.refresh();
+      } else setError(res.error);
+    });
+
+  const cycleInspection = (m: SiteMilestone) =>
+    startTransition(async () => {
+      const res = await setMilestoneInspectionAction(
+        m.id,
+        NEXT_INSPECTION[m.inspection] ?? "pending"
+      );
+      if (!res.ok) setError(res.error);
+      router.refresh();
+    });
 
   const advance = (m: SiteMilestone) => {
     const next = NEXT[m.status] ?? "in_progress";
@@ -138,15 +199,71 @@ export function SiteMilestones({
                         {formatRange(m.plannedStart, m.plannedEnd)}
                       </div>
                     )}
+                    {(m.location || m.forecastEnd) && (
+                      <div className="text-caption text-text-secondary">
+                        {m.location && <span>พื้นที่: {m.location}</span>}
+                        {m.location && m.forecastEnd && " · "}
+                        {m.forecastEnd && (
+                          <span
+                            className={
+                              m.plannedEnd && m.forecastEnd > m.plannedEnd
+                                ? "text-danger"
+                                : undefined
+                            }
+                          >
+                            คาดเสร็จ {dateFmt.format(new Date(m.forecastEnd))}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {m.quantityTotal !== null && m.quantityTotal > 0 && (
+                      <div className="mt-1 max-w-56">
+                        <div className="flex justify-between text-caption text-text-secondary">
+                          <span>ทำได้</span>
+                          <span className="tabular-nums text-text-primary">
+                            {m.quantityDone ?? 0}/{m.quantityTotal}{" "}
+                            {m.quantityUnit}
+                          </span>
+                        </div>
+                        <div className="mt-0.5 h-1.5 w-full overflow-hidden rounded-full bg-[#e7e1d5]">
+                          <div
+                            className="h-full rounded-full bg-primary-700"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round(
+                                  ((m.quantityDone ?? 0) / m.quantityTotal) * 100
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
                     {m.description && (
                       <p className="mt-0.5 text-caption leading-snug text-text-secondary">
                         {m.description}
                       </p>
                     )}
+
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editing === m.id ? setEditing(null) : openProgress(m)
+                        }
+                        className="mt-1 text-caption font-medium text-primary-700 hover:underline"
+                      >
+                        {editing === m.id ? "ปิด" : "บันทึกผลงาน/พื้นที่"}
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 flex-col items-end gap-1">
+                  <div className="flex items-center gap-2">
                   {canEdit ? (
                     <button
                       type="button"
@@ -169,7 +286,101 @@ export function SiteMilestones({
                       ×
                     </button>
                   )}
+                  </div>
+
+                  {/* Built and signed off are tracked apart on purpose. */}
+                  {(m.inspection !== "not_required" || canEdit) &&
+                    (canEdit ? (
+                      <button
+                        type="button"
+                        onClick={() => cycleInspection(m)}
+                        aria-label={`สถานะตรวจของ ${m.name}`}
+                      >
+                        {m.inspection === "not_required" ? (
+                          <span className="text-caption text-text-secondary hover:underline">
+                            + สถานะตรวจ
+                          </span>
+                        ) : (
+                          <StatusBadge tone={INSPECTION[m.inspection]!.tone}>
+                            {INSPECTION[m.inspection]!.label}
+                          </StatusBadge>
+                        )}
+                      </button>
+                    ) : (
+                      <StatusBadge tone={INSPECTION[m.inspection]!.tone}>
+                        {INSPECTION[m.inspection]!.label}
+                      </StatusBadge>
+                    ))}
                 </div>
+
+                {editing === m.id && canEdit && (
+                  <div className="mt-3 grid grid-cols-2 gap-2 rounded-md bg-[#faf8f3] p-3 sm:grid-cols-5">
+                    <label className="text-caption text-text-secondary">
+                      ทำได้
+                      <input
+                        value={prog.quantityDone}
+                        onChange={(e) =>
+                          setProg((f) => ({ ...f, quantityDone: e.target.value }))
+                        }
+                        inputMode="decimal"
+                        className={progInput}
+                      />
+                    </label>
+                    <label className="text-caption text-text-secondary">
+                      ทั้งหมด
+                      <input
+                        value={prog.quantityTotal}
+                        onChange={(e) =>
+                          setProg((f) => ({ ...f, quantityTotal: e.target.value }))
+                        }
+                        inputMode="decimal"
+                        className={progInput}
+                      />
+                    </label>
+                    <label className="text-caption text-text-secondary">
+                      หน่วย
+                      <input
+                        value={prog.quantityUnit}
+                        onChange={(e) =>
+                          setProg((f) => ({ ...f, quantityUnit: e.target.value }))
+                        }
+                        placeholder="ตร.ม."
+                        className={progInput}
+                      />
+                    </label>
+                    <label className="text-caption text-text-secondary">
+                      พื้นที่/ชั้น/ห้อง
+                      <input
+                        value={prog.location}
+                        onChange={(e) =>
+                          setProg((f) => ({ ...f, location: e.target.value }))
+                        }
+                        placeholder="ชั้น 2 ห้องนอน 1"
+                        className={progInput}
+                      />
+                    </label>
+                    <label className="text-caption text-text-secondary">
+                      คาดว่าจะเสร็จ
+                      <input
+                        type="date"
+                        value={prog.forecastEnd}
+                        onChange={(e) =>
+                          setProg((f) => ({ ...f, forecastEnd: e.target.value }))
+                        }
+                        className={progInput}
+                      />
+                    </label>
+                    <div className="col-span-2 sm:col-span-5">
+                      <button
+                        type="button"
+                        onClick={() => saveProgress(m.id)}
+                        className="inline-flex h-9 items-center rounded-md bg-primary-700 px-4 text-body-sm font-medium text-white hover:bg-primary-600"
+                      >
+                        บันทึก
+                      </button>
+                    </div>
+                  </div>
+                )}
               </li>
             );
           })}

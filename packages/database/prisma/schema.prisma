@@ -27,6 +27,9 @@ model User {
   markedNoWorkDays  NoWorkDay[]
   managedProjects   Project[]        @relation("ProjectManager")
   assignedTasks     Task[]           @relation("TaskAssignee")
+  inspectedTasks    Task[]           @relation("TaskInspector")
+  siteLogCreated    SiteLogEntry[]   @relation("SiteLogAuthor")
+  siteLogAnswered   SiteLogEntry[]   @relation("SiteLogResponder")
 
   @@map("profiles")
 }
@@ -98,6 +101,7 @@ model Project {
   purchaseOrders     PurchaseOrder[]
   quotations         Quotation[]
   tasks              Task[]
+  siteLog            SiteLogEntry[]
   wageEntries        WageEntry[]
   whtCertificates    WhtCertificate[]
 
@@ -872,13 +876,26 @@ model Task {
   plannedStart DateTime?  @map("planned_start") @db.Date
   plannedEnd   DateTime?  @map("planned_end") @db.Date
   sortOrder    Int        @default(0) @map("sort_order")
+  /// Actual against plan: 80 of 120 ตร.ม., and where on site.
+  quantityDone  Decimal?         @map("quantity_done") @db.Decimal(12, 2)
+  quantityTotal Decimal?         @map("quantity_total") @db.Decimal(12, 2)
+  quantityUnit  String?          @map("quantity_unit")
+  location      String?
+  /// Latest forecast finish, which drifts from plannedEnd as work moves.
+  forecastEnd   DateTime?        @map("forecast_end") @db.Date
+  /// Kept apart from `status`: built is not the same as signed off.
+  inspection    InspectionStatus @default(not_required)
+  inspectedAt   DateTime?        @map("inspected_at") @db.Timestamptz(6)
+  inspectedById String?          @map("inspected_by") @db.Uuid
   createdById  String?    @map("created_by") @db.Uuid
   updatedById  String?    @map("updated_by") @db.Uuid
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
   photos       Photo[]
+  logEntries   SiteLogEntry[]
   assignee     User?      @relation("TaskAssignee", fields: [assigneeId], references: [id])
+  inspectedBy  User?      @relation("TaskInspector", fields: [inspectedById], references: [id])
   parent       Task?      @relation("TaskHierarchy", fields: [parentTaskId], references: [id])
   subtasks     Task[]     @relation("TaskHierarchy")
   project      Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -1074,6 +1091,85 @@ enum MilestoneInvoiceStatus {
   paid
 
   @@map("milestone_invoice_status")
+}
+
+/// One row shape for everything a site update has to carry besides the
+/// milestones themselves: blockers, decisions awaited, variations, material
+/// deliveries, drawing revisions and the look-ahead. They all reduce to an
+/// item with an owner, a date it is needed by and a status, so they share a
+/// table and differ only in which of the optional date/impact columns apply.
+model SiteLogEntry {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  projectId    String        @map("project_id") @db.Uuid
+  /// Which milestone this affects — "waiting on bathroom drawings" belongs
+  /// against the services milestone it is holding up.
+  milestoneId  String?       @map("milestone_id") @db.Uuid
+  kind         SiteLogKind
+  title        String
+  detail       String?
+  /// Free text, not a user: most responsible parties are teams or trades
+  /// ("ทีมระบบ", "ผู้ผลิตช่องเปิด") that will never hold an account.
+  ownerName    String?       @map("owner_name")
+  dueDate      DateTime?     @map("due_date") @db.Date
+  status       SiteLogStatus @default(open)
+  responseNote String?       @map("response_note")
+  respondedById String?      @map("responded_by") @db.Uuid
+  respondedAt  DateTime?     @map("responded_at") @db.Timestamptz(6)
+  /// Variation impact. daysImpact is shown in the portal; costImpact never
+  /// is — it renders only for roles that pass canSeeMoney.
+  daysImpact   Int?          @map("days_impact")
+  costImpact   Decimal?      @map("cost_impact") @db.Decimal(14, 2)
+  refDoc       String?       @map("ref_doc")
+  /// Drawing revision currently in force, and when it was approved.
+  revision     String?
+  approvedAt   DateTime?     @map("approved_at") @db.Date
+  /// Material dates: ordered, promised on site, actually arrived.
+  orderedAt    DateTime?     @map("ordered_at") @db.Date
+  etaAt        DateTime?     @map("eta_at") @db.Date
+  arrivedAt    DateTime?     @map("arrived_at") @db.Date
+  createdById  String?       @map("created_by") @db.Uuid
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  project      Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  milestone    Task?         @relation(fields: [milestoneId], references: [id])
+  createdBy    User?         @relation("SiteLogAuthor", fields: [createdById], references: [id])
+  respondedBy  User?         @relation("SiteLogResponder", fields: [respondedById], references: [id])
+
+  @@index([projectId, kind])
+  @@index([milestoneId])
+  @@map("site_log_entries")
+}
+
+enum InspectionStatus {
+  not_required
+  pending
+  passed
+  failed
+
+  @@map("inspection_status")
+}
+
+enum SiteLogKind {
+  issue
+  approval
+  variation
+  material
+  document
+  lookahead
+
+  @@map("site_log_kind")
+}
+
+enum SiteLogStatus {
+  open
+  waiting
+  resolved
+  rejected
+  cancelled
+
+  @@map("site_log_status")
 }
 
 enum TaskStatus {
