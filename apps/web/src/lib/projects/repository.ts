@@ -5,7 +5,7 @@ import {
 } from "@artiverges/database";
 import { prisma } from "@/lib/db";
 import type { Role } from "@/lib/auth/roles";
-import type { CurrentUser } from "@/lib/auth/session";
+import { assertCanSeeMoney, type CurrentUser } from "@/lib/auth/session";
 import { canViewAllProjects } from "./permissions";
 
 /**
@@ -905,6 +905,9 @@ export type PortalProject = {
 export async function listPortalProjects(
   user: CurrentUser
 ): Promise<PortalProject[]> {
+  // Reads contractValue and payments, so it is staff-only regardless of who
+  // reaches the page — the shell already redirects portal roles away.
+  assertCanSeeMoney(user);
   const projects = await prisma.project.findMany({
     where: { deletedAt: null, ...scopeWhere(user) },
     orderBy: { updatedAt: "desc" },

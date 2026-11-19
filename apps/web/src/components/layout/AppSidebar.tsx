@@ -28,6 +28,7 @@ const NAV: Item[] = [
   { label: "ใบทวิ 50", href: "/wht" },
   { label: "ภ.พ.30", href: "/vat" },
   { label: "อัพเดทหน้างาน", href: "/site" },
+  { label: "ภาพรวมลูกค้า", href: "/portal" },
   { label: "โปรเจคของฉัน (AE)", href: "/my-projects" },
   { label: "พาร์ทเนอร์แนะนำงาน", href: "/referrals" },
   { label: "ผู้ใช้งาน", href: "/users", adminOnly: true },
