@@ -69,6 +69,7 @@ export type SiteMilestone = {
   name: string;
   description: string | null;
   status: string;
+  plannedStart: string | null;
   plannedEnd: string | null;
   sortOrder: number;
 };
@@ -116,6 +117,7 @@ export async function getSiteProject(
           name: true,
           description: true,
           status: true,
+          plannedStart: true,
           plannedEnd: true,
           sortOrder: true,
         },
@@ -150,6 +152,9 @@ export async function getSiteProject(
       name: t.name,
       description: t.description,
       status: t.status,
+      plannedStart: t.plannedStart
+        ? t.plannedStart.toISOString().slice(0, 10)
+        : null,
       plannedEnd: t.plannedEnd ? t.plannedEnd.toISOString().slice(0, 10) : null,
       sortOrder: t.sortOrder,
     })),

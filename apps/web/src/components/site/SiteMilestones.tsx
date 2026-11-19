@@ -28,7 +28,16 @@ const NEXT: Record<string, "todo" | "in_progress" | "done"> = {
 const dateFmt = new Intl.DateTimeFormat("th-TH", {
   day: "numeric",
   month: "short",
+  year: "2-digit",
 });
+
+/** "9 พ.ย. 69 – 20 พ.ย. 69", or just the one date a single-day step has. */
+function formatRange(start: string | null, end: string | null): string {
+  const s = start ? dateFmt.format(new Date(start)) : null;
+  const e = end ? dateFmt.format(new Date(end)) : null;
+  if (s && e) return s === e ? s : `${s} – ${e}`;
+  return s ?? (e ? `กำหนด ${e}` : "");
+}
 
 export function SiteMilestones({
   projectId,
@@ -124,10 +133,15 @@ export function SiteMilestones({
                     >
                       {m.name}
                     </div>
-                    {m.plannedEnd && (
+                    {(m.plannedStart || m.plannedEnd) && (
                       <div className="text-caption text-text-secondary">
-                        กำหนด {dateFmt.format(new Date(m.plannedEnd))}
+                        {formatRange(m.plannedStart, m.plannedEnd)}
                       </div>
+                    )}
+                    {m.description && (
+                      <p className="mt-0.5 text-caption leading-snug text-text-secondary">
+                        {m.description}
+                      </p>
                     )}
                   </div>
                 </div>
