@@ -142,7 +142,7 @@ export async function getSiteProject(
       },
       photos: {
         where: { deletedAt: null },
-        orderBy: { createdAt: "desc" },
+        orderBy: [{ takenAt: "desc" }, { createdAt: "desc" }],
         take: 200,
         select: {
           id: true,
@@ -299,6 +299,7 @@ export async function uploadSitePhoto(
   projectId: string,
   file: { buffer: Buffer; contentType: string },
   caption: string | null,
+  takenAt: Date,
   actorId: string
 ): Promise<void> {
   const ext = file.contentType === "image/png" ? "png" : "jpg";
@@ -317,7 +318,7 @@ export async function uploadSitePhoto(
       projectId,
       fileUrl: data.publicUrl,
       caption,
-      takenAt: new Date(),
+      takenAt,
       uploadedById: actorId,
     },
   });

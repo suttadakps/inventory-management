@@ -9,7 +9,12 @@ import * as repo from "./repository";
 
 export type SiteResult = { ok: true } | { ok: false; error: string };
 
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
+/**
+ * Vercel caps a serverless request body near 4.5MB and next.config sets the
+ * server-action limit to 5MB, so anything larger is rejected before this code
+ * runs. The browser downscales before sending; this is the backstop.
+ */
+const MAX_PHOTO_BYTES = 4 * 1024 * 1024;
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 type Authorized =
@@ -81,9 +86,12 @@ export async function uploadSitePhotoAction(
   if (!ALLOWED_TYPES.includes(file.type))
     return { ok: false, error: "รองรับเฉพาะไฟล์ JPG, PNG หรือ WebP" };
   if (file.size > MAX_PHOTO_BYTES)
-    return { ok: false, error: "ไฟล์ใหญ่เกิน 10MB" };
+    return { ok: false, error: "ไฟล์ใหญ่เกินไป ลองถ่ายใหม่หรือย่อรูปก่อน" };
 
   const caption = String(formData.get("caption") ?? "").trim() || null;
+  const takenRaw = String(formData.get("takenAt") ?? "");
+  const taken = takenRaw ? new Date(`${takenRaw}T00:00:00`) : new Date();
+  const takenAt = Number.isNaN(taken.getTime()) ? new Date() : taken;
   const buffer = Buffer.from(await file.arrayBuffer());
 
   try {
@@ -91,6 +99,7 @@ export async function uploadSitePhotoAction(
       projectId,
       { buffer, contentType: file.type },
       caption,
+      takenAt,
       auth.user.id
     );
   } catch {
