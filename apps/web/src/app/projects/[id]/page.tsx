@@ -103,12 +103,21 @@ export default async function ProjectDetailPage({
 
   return (
     <div className="space-y-5">
-      <Link
-        href="/projects"
-        className="text-body-sm text-text-secondary hover:underline"
-      >
-        ← กลับไปหน้ารายการโปรเจค
-      </Link>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          href="/projects"
+          className="text-body-sm text-text-secondary hover:underline"
+        >
+          ← กลับไปหน้ารายการโปรเจค
+        </Link>
+        {/* The same page the client and the crew see, for this project. */}
+        <Link
+          href={`/site/${id}`}
+          className="inline-flex h-9 items-center rounded-md border border-[#e2ddd0] bg-white px-3 text-body-sm font-medium text-text-primary hover:bg-[#faf8f3]"
+        >
+          อัพเดทหน้างาน →
+        </Link>
+      </div>
 
       {/* Header + metrics + progress */}
       <ContentCard className="p-6">

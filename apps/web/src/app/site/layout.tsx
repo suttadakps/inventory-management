@@ -3,6 +3,7 @@ import Link from "next/link";
 
 import { logout } from "@/lib/auth/actions";
 import { requireUser } from "@/lib/auth/session";
+import { isPortalRole } from "@/lib/auth/roles";
 
 /**
  * Shell for the site portal — deliberately *not* SidebarShell.
@@ -19,6 +20,9 @@ export default async function SiteLayout({
   const user = await requireUser();
   const name = user.fullName ?? user.email;
   const initial = (name ?? "A").trim().charAt(0).toUpperCase();
+  // Back-office staff open this page to see what the client sees; without a
+  // way out they would be stuck here, since this shell has no sidebar.
+  const isStaff = !isPortalRole(user.role);
 
   return (
     <div className="min-h-screen bg-[#f6f3ec]">
@@ -36,6 +40,14 @@ export default async function SiteLayout({
           </Link>
 
           <div className="flex items-center gap-3">
+            {isStaff && (
+              <Link
+                href="/dashboard"
+                className="hidden rounded-md border border-[#e2ddd0] px-3 py-1.5 text-body-sm font-medium text-text-primary transition-colors hover:bg-[#faf8f3] sm:block"
+              >
+                ← หลังบ้าน
+              </Link>
+            )}
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-body-sm font-semibold text-white">
               {initial}
             </span>
