@@ -33,6 +33,28 @@ export const INTERNAL_ROLES: readonly Role[] = [
   "worker",
 ];
 
+/**
+ * Roles that only ever see the site portal at /site: the projects they are
+ * assigned to, their milestones and site photos. They get no sidebar and no
+ * back office, and must never be shown a price, a cost or a wage — which is
+ * why this list gates both the shell and the money repositories rather than
+ * just hiding nav items.
+ */
+export const PORTAL_ROLES: readonly Role[] = [
+  "client",
+  "site_engineer",
+  "worker",
+];
+
+export function isPortalRole(role: Role): boolean {
+  return PORTAL_ROLES.includes(role);
+}
+
+/** Back-office roles — the only ones allowed to see money anywhere. */
+export function canSeeMoney(role: Role): boolean {
+  return !isPortalRole(role);
+}
+
 export function isRole(value: unknown): value is Role {
   return (
     typeof value === "string" && (ROLES as readonly string[]).includes(value)

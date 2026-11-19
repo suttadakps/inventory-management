@@ -1,6 +1,6 @@
 import { Prisma, type BoqStatus } from "@artiverges/database";
 import { prisma } from "@/lib/db";
-import type { CurrentUser } from "@/lib/auth/session";
+import { assertCanSeeMoney, type CurrentUser } from "@/lib/auth/session";
 import { sumTotals, type BoqTotals, type ItemCosts } from "./calc";
 import { computeQuote } from "./quote-math";
 import { visibleStatusesFor } from "./permissions";
@@ -175,6 +175,7 @@ export async function listBoqsForProject(
   user: CurrentUser,
   projectId: string
 ): Promise<ProjectBoqList | null> {
+  assertCanSeeMoney(user);
   const scope = await loadProjectScope(projectId);
   if (!scope || !canViewProject(user, scope)) return null;
 
@@ -223,6 +224,7 @@ export async function getBoqTree(
   user: CurrentUser,
   boqId: string
 ): Promise<BoqTreeDto | null> {
+  assertCanSeeMoney(user);
   const b = await prisma.boq.findFirst({
     where: { id: boqId, deletedAt: null },
     include: {
@@ -705,6 +707,7 @@ export async function getBoqFlat(
   user: CurrentUser,
   boqId: string
 ): Promise<BoqFlatDoc | null> {
+  assertCanSeeMoney(user);
   const b = await prisma.boq.findUnique({
     where: { id: boqId },
     include: {
@@ -900,6 +903,7 @@ export type BoqGlobalRow = {
 };
 
 export async function listAllBoqs(user: CurrentUser): Promise<BoqGlobalRow[]> {
+  assertCanSeeMoney(user);
   const internal = canViewAllProjects(user.role);
   // Standalone BOQs (no project): internal staff see all; others see own.
   const standalone: Prisma.BoqWhereInput = internal

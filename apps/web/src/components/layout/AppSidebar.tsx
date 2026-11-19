@@ -8,7 +8,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import { useMobileSidebar } from "@/components/layout/MobileSidebarContext";
 
-type Item = { label: string; href?: string };
+type Item = { label: string; href?: string; adminOnly?: boolean };
 
 /**
  * Left navigation for the ARTIVERGES NEXT operations shell (Thai labels, per
@@ -27,20 +27,23 @@ const NAV: Item[] = [
   { label: "รายชื่อช่าง", href: "/workers" },
   { label: "ใบทวิ 50", href: "/wht" },
   { label: "ภ.พ.30", href: "/vat" },
-  { label: "พอร์ทัลลูกค้า", href: "/portal" },
   { label: "โปรเจคของฉัน (AE)", href: "/my-projects" },
   { label: "พาร์ทเนอร์แนะนำงาน", href: "/referrals" },
+  { label: "ผู้ใช้งาน", href: "/users", adminOnly: true },
 ];
 
 function SidebarContent({
   roleLabel,
   pathname,
+  canManageUsers,
   onNavigate,
 }: {
   roleLabel: string;
   pathname: string;
+  canManageUsers: boolean;
   onNavigate?: () => void;
 }) {
+  const items = NAV.filter((i) => !i.adminOnly || canManageUsers);
   return (
     <>
       <div className="px-6 pb-6 pt-6">
@@ -58,7 +61,7 @@ function SidebarContent({
       </div>
 
       <nav className="flex-1 space-y-0.5 px-3">
-        {NAV.map((item) => {
+        {items.map((item) => {
           if (!item.href) {
             return (
               <span
@@ -107,7 +110,13 @@ function SidebarContent({
   );
 }
 
-export function AppSidebar({ roleLabel }: { roleLabel: string }) {
+export function AppSidebar({
+  roleLabel,
+  canManageUsers,
+}: {
+  roleLabel: string;
+  canManageUsers: boolean;
+}) {
   const pathname = usePathname();
   const { open, setOpen } = useMobileSidebar();
 
@@ -122,7 +131,11 @@ export function AppSidebar({ roleLabel }: { roleLabel: string }) {
     <>
       {/* Desktop: static sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col border-r border-[#e7e1d5] bg-[#fbfaf6] lg:flex print:!hidden">
-        <SidebarContent roleLabel={roleLabel} pathname={pathname} />
+        <SidebarContent
+          roleLabel={roleLabel}
+          pathname={pathname}
+          canManageUsers={canManageUsers}
+        />
       </aside>
 
       {/* Mobile/tablet: off-canvas drawer, toggled by the hamburger button in the top bar */}
@@ -169,6 +182,7 @@ export function AppSidebar({ roleLabel }: { roleLabel: string }) {
           <SidebarContent
             roleLabel={roleLabel}
             pathname={pathname}
+            canManageUsers={canManageUsers}
             onNavigate={() => setOpen(false)}
           />
         </aside>

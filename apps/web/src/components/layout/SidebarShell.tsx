@@ -1,6 +1,7 @@
 import { logout } from "@/lib/auth/actions";
-import { requireUser } from "@/lib/auth/session";
+import { requireBackOffice } from "@/lib/auth/session";
 import { AppSidebar } from "@/components/layout/AppSidebar";
+import { canManageUsers } from "@/lib/users/permissions";
 import { MobileSidebarProvider } from "@/components/layout/MobileSidebarContext";
 import { MobileMenuButton } from "@/components/layout/MobileMenuButton";
 
@@ -27,7 +28,9 @@ export async function SidebarShell({
   subtitle?: string;
   children: React.ReactNode;
 }) {
-  const user = await requireUser();
+  // Portal roles (client / site engineer / worker) never render this shell —
+  // they are redirected to /site, which is their whole surface.
+  const user = await requireBackOffice();
   const roleTh = ROLE_TH[user.role] ?? user.role;
   const name = user.fullName ?? user.email;
   const initial = (name ?? "A").trim().charAt(0).toUpperCase();
@@ -35,7 +38,10 @@ export async function SidebarShell({
   return (
     <MobileSidebarProvider>
       <div className="flex min-h-screen bg-[#f6f3ec]">
-        <AppSidebar roleLabel={roleTh} />
+        <AppSidebar
+          roleLabel={roleTh}
+          canManageUsers={canManageUsers(user.role)}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex items-center justify-between gap-4 border-b border-[#e7e1d5] px-6 py-5 print:hidden">

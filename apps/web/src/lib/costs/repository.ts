@@ -1,7 +1,7 @@
 import { Prisma } from "@artiverges/database";
 
 import { prisma } from "@/lib/db";
-import type { CurrentUser } from "@/lib/auth/session";
+import { assertCanSeeMoney, type CurrentUser } from "@/lib/auth/session";
 import type { Role } from "@/lib/auth/roles";
 
 /**
@@ -48,6 +48,7 @@ async function syncActualCost(
 }
 
 export async function listExpenses(user: CurrentUser): Promise<ExpenseRow[]> {
+  assertCanSeeMoney(user);
   const where: Prisma.ExpenseWhereInput = canViewAllCosts(user.role)
     ? { deletedAt: null }
     : { deletedAt: null, createdById: user.id };

@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { prisma } from "@/lib/db";
-import { isRole, type Role } from "./roles";
+import { canSeeMoney, isPortalRole, isRole, type Role } from "./roles";
 
 /**
  * Session + RBAC helpers for Server Components / Route Handlers.
@@ -67,4 +67,25 @@ export async function requireRole(allowed: Role[]): Promise<CurrentUser> {
   const user = await requireUser();
   if (!allowed.includes(user.role)) redirect("/dashboard");
   return user;
+}
+
+/**
+ * Requires a back-office user, sending portal roles to /site instead. Used by
+ * the shells, so it covers every back-office page at one choke point.
+ */
+export async function requireBackOffice(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (isPortalRole(user.role)) redirect("/site");
+  return user;
+}
+
+/**
+ * Hard stop for anything that reads money. The shells already keep portal
+ * roles out of the pages; this guards the repositories underneath them, so a
+ * hand-made server-action call cannot read a price either.
+ */
+export function assertCanSeeMoney(user: CurrentUser): void {
+  if (!canSeeMoney(user.role)) {
+    throw new Error("Forbidden: this role cannot access financial data.");
+  }
 }

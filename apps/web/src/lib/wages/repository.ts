@@ -1,7 +1,7 @@
 import { Prisma, type WageStatus } from "@artiverges/database";
 
 import { prisma } from "@/lib/db";
-import type { CurrentUser } from "@/lib/auth/session";
+import { assertCanSeeMoney, type CurrentUser } from "@/lib/auth/session";
 import type { Role } from "@/lib/auth/roles";
 
 /**
@@ -45,6 +45,7 @@ export type WageSummary = {
 };
 
 export async function listWages(user: CurrentUser): Promise<WageSummary> {
+  assertCanSeeMoney(user);
   const where: Prisma.WageEntryWhereInput = canViewAllWages(user.role)
     ? {}
     : { createdById: user.id };

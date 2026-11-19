@@ -1,7 +1,7 @@
 import { Prisma, type DisbursementStatus } from "@artiverges/database";
 
 import { prisma } from "@/lib/db";
-import type { CurrentUser } from "@/lib/auth/session";
+import { assertCanSeeMoney, type CurrentUser } from "@/lib/auth/session";
 import type { Role } from "@/lib/auth/roles";
 
 /**
@@ -31,6 +31,7 @@ export type DisbursementRow = {
 export async function listDisbursements(
   user: CurrentUser
 ): Promise<DisbursementRow[]> {
+  assertCanSeeMoney(user);
   // Approvers see every request; everyone else sees only their own.
   const where: Prisma.DisbursementWhereInput = canApproveDisbursement(user.role)
     ? {}
