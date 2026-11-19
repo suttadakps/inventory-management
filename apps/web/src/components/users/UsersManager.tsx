@@ -105,6 +105,7 @@ export function UsersManager({
 
   // Edit form (per row)
   const [edit, setEdit] = useState({
+    email: "",
     fullName: "",
     role: "worker" as Role,
     projectIds: [] as string[],
@@ -142,6 +143,7 @@ export function UsersManager({
     setEditingId(u.id);
     setError(null);
     setEdit({
+      email: u.email,
       fullName: u.fullName ?? "",
       role: u.role,
       projectIds: u.projects.map((p) => p.id),
@@ -426,6 +428,27 @@ export function UsersManager({
                         }
                         className={inputCls}
                       />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-body-sm font-medium text-text-primary">
+                        อีเมล (ใช้เป็นชื่อผู้ใช้)
+                      </label>
+                      <input
+                        type="email"
+                        value={edit.email}
+                        onChange={(e) =>
+                          setEdit((f) => ({ ...f, email: e.target.value }))
+                        }
+                        className={inputCls}
+                      />
+                      {edit.email.trim().toLowerCase() !==
+                        u.email.toLowerCase() && (
+                        <p className="text-caption text-accent-600">
+                          {u.id === currentUserId
+                            ? "นี่คือบัญชีของคุณ — ครั้งต่อไปต้องล็อกอินด้วยอีเมลใหม่"
+                            : "ผู้ใช้ต้องล็อกอินด้วยอีเมลใหม่ รหัสผ่านเดิมใช้ได้ตามปกติ"}
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-1.5">
                       <label className="text-body-sm font-medium text-text-primary">

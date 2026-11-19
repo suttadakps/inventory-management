@@ -133,11 +133,36 @@ export async function createUser(input: CreateUserInput): Promise<string> {
 
 export async function updateUser(
   userId: string,
-  input: { fullName: string; role: Role; projectIds: string[]; clientId: string | null }
+  input: {
+    email: string;
+    fullName: string;
+    role: Role;
+    projectIds: string[];
+    clientId: string | null;
+  }
 ): Promise<void> {
+  const current = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { email: true },
+  });
+
+  // The address is the login name, so it lives in Supabase auth; the profile
+  // row only mirrors it. Change auth first — it is the one that can reject a
+  // duplicate — and let that throw before the mirror drifts out of step.
+  if ((current?.email ?? "").toLowerCase() !== input.email) {
+    const supabase = createSupabaseServiceRoleClient();
+    const { error } = await supabase.auth.admin.updateUserById(userId, {
+      email: input.email,
+      // Same reasoning as account creation: nobody is clicking a link in an
+      // inbox that does not exist.
+      email_confirm: true,
+    });
+    if (error) throw new Error(error.message);
+  }
+
   await prisma.user.update({
     where: { id: userId },
-    data: { fullName: input.fullName, role: input.role },
+    data: { email: input.email, fullName: input.fullName, role: input.role },
   });
   await assignProjects(userId, input.projectIds, input.role);
 

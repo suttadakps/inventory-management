@@ -10,6 +10,17 @@ import * as repo from "./repository";
 export type UserResult = { ok: true } | { ok: false; error: string };
 
 const MIN_PASSWORD = 8;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Supabase phrases a clash a few ways; they all mean the same thing here. */
+function friendlyAuthError(msg: string): string {
+  const m = msg.toLowerCase();
+  if (m.includes("already registered") || m.includes("already been registered"))
+    return "อีเมลนี้มีบัญชีอยู่แล้ว";
+  if (m.includes("already exists")) return "อีเมลนี้มีบัญชีอยู่แล้ว";
+  if (m.includes("invalid") && m.includes("email")) return "อีเมลไม่ถูกต้อง";
+  return msg;
+}
 
 type Authorized =
   | { ok: true; user: CurrentUser }
@@ -41,8 +52,7 @@ export async function createUserAction(
   const fullName = input.fullName.trim();
 
   if (!fullName) return { ok: false, error: "กรุณากรอกชื่อ-นามสกุล" };
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    return { ok: false, error: "อีเมลไม่ถูกต้อง" };
+  if (!EMAIL_RE.test(email)) return { ok: false, error: "อีเมลไม่ถูกต้อง" };
   if (input.password.length < MIN_PASSWORD)
     return { ok: false, error: `รหัสผ่านต้องยาวอย่างน้อย ${MIN_PASSWORD} ตัว` };
   if (!isRole(input.role)) return { ok: false, error: "สิทธิ์ไม่ถูกต้อง" };
@@ -58,12 +68,7 @@ export async function createUserAction(
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "สร้างบัญชีไม่สำเร็จ";
-    return {
-      ok: false,
-      error: msg.includes("already registered")
-        ? "อีเมลนี้มีบัญชีอยู่แล้ว"
-        : msg,
-    };
+    return { ok: false, error: friendlyAuthError(msg) };
   }
 
   revalidatePath("/users");
@@ -72,29 +77,36 @@ export async function createUserAction(
 
 export async function updateUserAction(
   userId: string,
-  input: { fullName: string; role: string; projectIds: string[]; clientId: string }
+  input: {
+    email: string;
+    fullName: string;
+    role: string;
+    projectIds: string[];
+    clientId: string;
+  }
 ): Promise<UserResult> {
   const auth = await authorize();
   if (!auth.ok) return auth;
 
+  const email = input.email.trim().toLowerCase();
   const fullName = input.fullName.trim();
   if (!fullName) return { ok: false, error: "กรุณากรอกชื่อ-นามสกุล" };
+  if (!EMAIL_RE.test(email)) return { ok: false, error: "อีเมลไม่ถูกต้อง" };
   if (!isRole(input.role)) return { ok: false, error: "สิทธิ์ไม่ถูกต้อง" };
   if (userId === auth.user.id && input.role !== auth.user.role)
     return { ok: false, error: "เปลี่ยนสิทธิ์ของตัวเองไม่ได้" };
 
   try {
     await repo.updateUser(userId, {
+      email,
       fullName,
       role: input.role,
       projectIds: input.projectIds,
       clientId: input.clientId || null,
     });
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : "บันทึกไม่สำเร็จ",
-    };
+    const msg = e instanceof Error ? e.message : "บันทึกไม่สำเร็จ";
+    return { ok: false, error: friendlyAuthError(msg) };
   }
 
   revalidatePath("/users");
